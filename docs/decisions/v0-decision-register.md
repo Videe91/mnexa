@@ -42,7 +42,7 @@ Six decisions settled: D-01, D-08, D-09, D-17, D-21, D-22 (ADR-0002 … ADR-0006
 
 **Nine decisions settled:** D-01, D-02, D-03, D-08, D-09, D-17, D-21, D-22, D-24 (ADR-0002 … ADR-0009).
 
-**Next blocker: D-05 — time and ordering semantics.** No ADR drafted; awaiting owner direction.
+**Next blocker: D-05 — time and ordering semantics.** ADR-0010 proposed 2026-09-10, awaiting review.
 
 Chosen by breadth of specification impact rather than register order. Blocking counts across the thirty
 specification elements:
@@ -146,7 +146,7 @@ whether entity resolution is reversible; whether identity may be assigned by a m
 
 **Tier:** D2
 **Vision:** 2.6, 6.4, 6.6
-**Status:** **NEXT BLOCKER.** Constrained by ADR-0005 and ADR-0008, which fixed **commit sequence** as the
+**Status:** ADR-0010 proposed 2026-09-10; awaiting owner review. Constrained by ADR-0005 and ADR-0008, which fixed **commit sequence** as the
 admission-ordering primitive for both planes. That sharpens rather than answers D-05: three time axes now
 exist and their relationship is unspecified — *occurred-at* (when the event happened in the world),
 *recorded-at* (when MNEXA received it), and *commit sequence* (already settled). D-05 must settle the first
@@ -211,8 +211,9 @@ rule at specification level.
 
 **Tier:** D2 (D3 where it affects experimental validity)
 **Vision:** 5.3, 5.10; `.claude/rules/scientific-method.md`
-**Status:** pending. **Touched by ADR-0006** rule 6: recall output must include a freshness determination,
-which is itself a computed value whose reproducibility falls under this decision.
+**Status:** pending. **Touched by ADR-0006** rule 6 (recall output must include a freshness determination) and
+by ADR-0010 (proposed), which supplies `AS_OF(N)` as the reproducibility primitive — a recall is reproducible
+if reproducible as of its watermark. D-10 must decide which record carries that watermark.
 
 Whether recall must be deterministic given identical memory state and Context Frame. Nondeterministic
 recall makes controlled comparison noisier and makes a failed run non-reproducible.
@@ -234,9 +235,10 @@ Where a confidence value comes from at t=0, given that the vision distrusts mode
 **Vision:** 2.7, 3.6, 6.19–6.23, 10.18
 **Status:** pending; **constrained** by ADR-0007. Decision, Prediction, Action and Outcome are historical
 event types, not canonical objects, so linkage must be expressed as references between records rather than
-as fields on a mutable object. **Unblocked by ADR-0008** (proposed): `outcome_for`, `execution_of` and
-`evaluates_prediction` make the linkage expressible, leaving D-12 to decide the content and completeness
-contract rather than whether the edges may exist.
+as fields on a mutable object. **Unblocked by ADR-0008**: `outcome_for`, `execution_of` and
+`evaluates_prediction` make the linkage expressible. **Temporal dependency cleared by ADR-0010** (proposed):
+D-12 must carry the knowledge watermark, may express observation lag as `recorded_at` − `occurred_at`, and
+must keep prediction horizon in payload rather than in a record time field.
 
 What must be recorded at decision time so that prediction error is computable later without hindsight
 contamination; how an outcome binds to the decision that produced it; what happens when an outcome never
@@ -246,8 +248,9 @@ arrives.
 
 **Tier:** D3 (scientific)
 **Vision:** 3.12, 3.39, 5.36–5.41
-**Status:** pending. **Partially settled by ADR-0006** rule 6 and M-8: every object entering active cognition
-carries a freshness determination, so an activation record must include it. The attribution question (T-3)
+**Status:** pending. **Partially settled by ADR-0006** rule 6 and M-8 (every object entering active cognition
+carries a freshness determination) and by ADR-0010 (proposed), which makes vision 5.40's *not activated* line
+computable: the knowledge watermark defines what was available but unused. The attribution question (T-3)
 remains fully open. **Vision tension — see Contradictions below.**
 
 The vision requires memory strength to depend on demonstrated usefulness, and requires recording what was
@@ -297,8 +300,9 @@ enter memory. Must be locked before any experience is captured, not at benchmark
 
 **Tier:** D2
 **Vision:** 3.4, 9.7
-**Status:** pending. **Shaped** by ADR-0008 (proposed): commit becomes a two-phase admission for records
-carrying structural edges, since preexistence must be verified against every target before commit.
+**Status:** pending. **Shaped** by ADR-0008 (commit is a two-phase admission for records carrying structural
+edges) and by ADR-0010 (proposed), which adds commit-sequencer durability across restarts and leaves open
+whether a failed commit consumes a sequence number — rule 7 permits gaps, so either answer is admissible.
 
 What happens on partial write, duplicate submission, and capture failure; whether a lost experience is
 allowed to fail silently. Idempotency is part of the durable contract if the capture port is retryable.
