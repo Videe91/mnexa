@@ -224,7 +224,8 @@ How v0 structurally guarantees single-agent scope so that later L2+ scopes exten
 
 **Tier:** D3 (scientific)
 **Vision:** 10.59; `.claude/rules/scientific-method.md`
-**Status:** ADR-0004 proposed; awaiting owner review.
+**Status:** **SETTLED** — ADR-0004 accepted 2026-09-10 after two owner-directed amendments (ephemeral-state
+freeze + evidence sink; exposure/burn lifecycle + epoch freeze).
 
 What MNEXA is permitted to ingest, and the structural guarantee that hidden evaluation instances cannot
 enter memory. Must be locked before any experience is captured, not at benchmark time.
@@ -288,7 +289,31 @@ provenance/derivation edges should be version-pinned, while mutable heads may ex
 current interpretation. This is to be treated as one candidate option when the ADR is drafted, argued
 against genuine alternatives, and not presented as settled.
 
-**Sequencing:** surfaces immediately after D-17 resolves, before the remaining domain-model decisions.
+**Sequencing:** surfaced immediately after D-17, per owner instruction.
+
+**Status update:** ADR-0005 proposed 2026-09-10; awaiting owner review. Reclassified **D2 → D3** because
+the edges' mutability determines what ADR-0002's accepted invariant I-9a actually asserts, placing the
+question inside an accepted constitutional ADR rather than beside it. The owner's expectation was adopted in
+its first half (pin derivation edges) and refined in its second: mutable heads live on *objects*, as
+ADR-0002 rule 4 already provides, so no separate floating discovery edge is introduced (see ADR-0005
+Option C, rejected).
+
+### D-22 — Re-derivation policy for stale abstractions
+
+**Tier:** D2
+**Vision:** 3.21, 3.13, 3.34
+**Status:** pending. **Discovered while drafting ADR-0005; not decided there.**
+
+ADR-0005 rule 4 makes staleness computable — an abstraction is stale with respect to a basis when its pinned
+version is not that object's current head. It says nothing about what should happen when staleness is
+detected.
+
+Options span: re-derive during consolidation; flag without acting; reduce confidence proportionally to how
+far the basis moved; ignore staleness in v0 entirely. Each has different consolidation cost and different
+consequences for 3.21's contradiction propagation.
+
+Not decided in ADR-0005 because that ADR's question was edge mutability, and settling re-derivation policy
+alongside it would repeat exactly the silent scope expansion that produced D-21.
 
 ---
 

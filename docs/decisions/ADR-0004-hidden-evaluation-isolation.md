@@ -1,6 +1,6 @@
 ---
 id: ADR-0004
-status: proposed
+status: accepted
 date: 2026-09-10
 scope: scientific
 vision_refs:
@@ -15,6 +15,22 @@ supersedes: []
 **Tier: D3 (constitutional / scientific). Requires explicit owner approval.**
 
 Covers register entry **D-17**.
+
+**Approval:** accepted by owner 2026-09-10, following two owner-directed amendments made while the ADR was
+still `proposed`. The record below is as amended and approved.
+
+**Amendment history (all pre-acceptance, owner-directed):**
+
+1. **Read-only extended from the memory store to all decision-influencing state.** The original proposal
+   froze the canonical MNEXA snapshot but said nothing about session history, working memory, adaptive
+   retrieval statistics, caches, tool-side state or process-global state — every one of which can carry a
+   result from one evaluation task into the next. Introduces the *evaluation epoch* and the *Evaluation
+   Evidence Sink*. — rules 8–10, invariants K-9 … K-13.
+2. **Exposure / burn rule added.** The original had no notion that an evaluation instance stops being
+   pristine once its results have been seen. Introduces the SEALED → EXPOSED → RETIRED lifecycle and the
+   epoch freeze. — rules 11–13, invariants K-14 … K-17.
+
+Both amendments close V3, V4, V5 and V6 more tightly without changing the core decision (Option A).
 
 ## Decision question
 
@@ -139,6 +155,51 @@ Seven rules.
    aggregation. Selection of a memory snapshot by evaluation performance is prohibited for the primary
    proof.
 
+### Ephemeral state and the evidence sink
+
+8. **Fresh ephemeral state per evaluation task.** Each evaluation task begins with fresh ephemeral
+   task/runtime cognitive state. No result from an earlier evaluation task may influence a later one
+   through any of: conversation or session history; working memory; mutable retrieval or reranking state;
+   adaptive retrieval statistics; caches whose contents can affect decisions; temporary files; tool-side
+   persistent state; process-global adaptive state; or any other writable state on the subject's decision
+   path. The list is illustrative of a general rule — *nothing writable on the decision path survives a
+   task boundary* — not an exhaustive allowlist to be read narrowly.
+
+9. **The permitted exception is frozen treatment state.** Condition C may access the same pre-evaluation
+   frozen MNEXA snapshot across all tasks. That snapshot must not change at any point during the
+   **evaluation epoch**. This is the only state permitted to span tasks, and it is read-only.
+
+10. **The Evaluation Evidence Sink is one-way.** The harness may record outputs, traces, timings, outcomes
+    and scores into a separate Evaluation Evidence Sink. The sink lies outside the evaluated agent/MNEXA
+    cognitive path and has no read path back into the evaluated subject until the evaluation epoch has
+    closed. The distinction is explicit:
+
+    - **MNEXA / agent state** — frozen and read-only during primary evaluation.
+    - **Evaluation evidence** — writable by the harness for measurement, inaccessible to the evaluated
+      system during the epoch.
+
+### Exposure and epoch freeze
+
+11. **Exposure lifecycle.** Every evaluation instance, or evaluation-set version, carries a recorded
+    exposure state:
+
+    ```text
+    SEALED  →  EXPOSED  →  RETIRED FROM NEW CONFIRMATORY CLAIMS
+    ```
+
+    An instance ceases to be pristine — becomes **EXPOSED** — once its content, behavioural result, failure
+    information or answer-relevant evidence has been shown to a model, an operator, or a development process
+    capable of influencing subsequent system changes.
+
+12. **What an exposed set may still be used for.** An exposed set remains usable for regression testing,
+    debugging and exploratory experiments. After system changes influenced by its results, it must not be
+    represented as a fresh hidden holdout supporting a new primary confirmatory claim.
+
+13. **Epoch freeze.** For a predeclared primary evaluation epoch, the following are frozen before the epoch
+    begins and unchanged until it closes: architecture and configuration; benchmark contract version; the
+    A/B/C treatment definitions; and the resource controls of ADR-0003. In addition, detailed results from
+    an earlier condition must not be used to alter a later condition inside the same epoch.
+
 ### Invariants and how each is checked
 
 | ID | Invariant | How checked |
@@ -146,11 +207,25 @@ Seven rules.
 | K-1 | Experience and evaluation corpora share no instance identifier | Set intersection over registered identifiers; assert empty |
 | K-2 | The capture path cannot read the evaluation corpus | Negative access test from the capture context; assert access denied, plus config assertion that no credential/route is granted |
 | K-3 | Memory write capability is absent during an evaluation pass | Interface assertion that write ports are unexposed to the harness; attempted write in a test run must fail as unavailable, not merely be skipped |
-| K-4 | Memory state is unchanged across an evaluation pass | Content-hash memory before and after; assert equal |
+| K-4 | Memory state is unchanged across the whole evaluation epoch | Content-hash the memory snapshot at epoch open and close, and sample between tasks; assert all equal |
 | K-5 | No historical record's provenance resolves to an evaluation instance | Traverse provenance for all records; assert no terminal identifier ∈ evaluation registry |
 | K-6 | Each result is attributed to a recorded pre-pass snapshot hash | Assert the experiment record carries a non-null pre-pass hash matching the pinned snapshot |
 | K-7 | Runs following post-inspection changes are marked contaminated for the primary proof | Compare inspection-event timestamps against memory/config change timestamps; assert any run after such a sequence carries the contaminated label |
 | K-8 | Variant and contaminated runs are excluded from primary aggregation | Assert primary aggregation contains only runs labelled clean |
+| K-9 | Each evaluation task starts from fresh ephemeral state | Assert a new execution context per task (distinct container/process/session identifiers); assert no subject-side session or thread identifier is reused across tasks |
+| K-10 | No writable surface on the decision path persists across tasks | Enumerate writable mounts, cache directories and temp paths on the decision path; assert each is read-only or empty at task start; hash them at task start and end and assert the start state is restored |
+| K-11 | Decision-affecting caches are absent; cost/latency-only caches are disclosed | Assert no cache whose contents can alter model output is on the decision path; record any provider-side prompt cache in the experiment record, since it affects timing measurements even when it does not affect decisions |
+| K-12 | The evaluated subject cannot read the Evaluation Evidence Sink during the epoch | Negative access test from the subject context; assert sink credentials and routes are absent from the subject environment; assert sink read access is granted only after epoch close |
+| K-13 | Frozen treatment state is the only state spanning tasks | Diff the subject-visible state surface between consecutive tasks; assert the only non-empty difference is the pinned read-only snapshot |
+| K-14 | Every evaluation instance or set version carries a recorded exposure state | Assert non-null exposure state for every registered instance/set version |
+| K-15 | Primary confirmatory claims cite only instances SEALED at epoch open | Assert every instance contributing to a primary claim had exposure state SEALED at the epoch-open timestamp |
+| K-16 | Epoch-frozen artefacts are unchanged across the epoch | Hash architecture/config, benchmark contract version, treatment definitions and resource controls at epoch open and close; assert all equal |
+| K-17 | No later condition is altered after detailed results from an earlier condition in the same epoch | Compare per-condition configuration change timestamps against earlier conditions' result-availability timestamps; assert no change follows |
+
+K-10 and K-13 are the practical answer to "detect state drift where practical". Exhaustive proof that no
+writable byte influenced a decision is not achievable; hashing the declared writable surface at task
+boundaries and diffing the subject-visible state between tasks detects the realistic failures — a cache that
+was supposed to be cleared, a temp file left behind, a session identifier quietly reused.
 
 K-5 is available only as a consequence of ADR-0002. Because provenance is resolvable and terminates in
 historical records, "did anything in memory descend from an evaluation instance" is a graph query rather
@@ -178,6 +253,42 @@ measurement. That is the standard train/test discipline, and it means a positive
 accumulated transferable intelligence" and does *not* by itself support "MNEXA learns continuously during
 deployment". Rule 7's variant path is where the latter claim would later be earned.
 
+### Why freezing the memory store was not enough
+
+The original proposal froze the canonical MNEXA snapshot and treated that as the read-only guarantee. It was
+not. The snapshot is only one of many places a result from task 1 can reach task 50: a session that is never
+reset, a reranker that updates statistics as it serves, a cache keyed on something task-derived, a temp file,
+a tool that keeps state server-side. Each of these reproduces V3 exactly, while the memory hash stays
+reassuringly constant.
+
+Rules 8–10 therefore invert the default. Instead of enumerating what must be frozen, they establish that
+*nothing writable on the decision path survives a task boundary*, with one named exception — the pinned
+read-only snapshot — and one named outlet: the Evidence Sink, which flows one way. That inversion matters
+because the enumeration in rule 8 will always be incomplete; new state carriers appear with every tool
+added. A rule that lists carriers ages badly. A rule that permits exactly one exception does not.
+
+The sink is what makes the inversion workable. Measurement genuinely requires writing — outputs, traces,
+timings, scores — and without a designated one-way outlet, the freeze rule and the need to measure would be
+in direct conflict, which is how such rules get quietly relaxed in practice.
+
+### Why exposure state is needed on top of isolation
+
+Isolation protects an evaluation set during a single epoch. It does nothing about what happens to that set
+afterwards. Once results are read, a diagnosis formed and the system changed, the same instances no longer
+measure what they measured before — they now sit downstream of a development process that saw them. Nothing
+in the isolation rules detects this, because no rule was broken during any individual epoch.
+
+The SEALED → EXPOSED → RETIRED lifecycle makes that erosion explicit and tracked rather than gradual and
+invisible. It also preserves the legitimate use: an exposed set is still perfectly good for regression and
+debugging, and saying so removes the incentive to pretend it is still pristine. What it can no longer do is
+support a *new primary confirmatory claim*, and rule 12 says only that.
+
+Rule 13's epoch freeze closes the corresponding gap within an epoch. Freezing architecture, contract version,
+treatment definitions and resource controls before the epoch opens is what makes the epoch a measurement
+rather than a search; and forbidding a later condition from being altered after an earlier condition's
+detailed results is what prevents A/B/C from becoming a sequence in which C is tuned with knowledge of how A
+and B fared.
+
 Rule 6 exists because the most likely contamination in this project is not adversarial and not automated.
 It is a capable operator looking at which evaluation cases failed, forming a correct diagnosis, and
 improving memory in a way that happens to be shaped by the held-out set. Nothing about that sequence feels
@@ -193,17 +304,22 @@ iterations from primary-proof runs.
 evaluation and experience data must live in separately credentialed stores; every operator inspection needs
 recording, which adds friction to exactly the debugging loop people most want to move fast in.
 
-**Newly required:** an evaluation instance registry; content-hashable memory snapshots; a negative access
-test in CI; inspection-event recording; clean/variant/contaminated labelling on every run.
+**Newly required:** an evaluation instance registry carrying exposure state; content-hashable memory
+snapshots; per-task execution isolation with a hashable writable-surface inventory; a separately credentialed
+Evaluation Evidence Sink with one-way flow; negative access tests in CI for both the evaluation corpus and
+the sink; inspection-event recording; epoch open/close artefact hashing; clean/variant/contaminated
+labelling on every run.
 
 **Constrained:** D-14 (port surface) must make write capability separable from read capability, since rule 3
 depends on withholding one without the other. D-18 (failure semantics) interacts with rule 3 — a capture
 failure during an evaluation pass must be impossible rather than retried, because there is nothing legitimate
 to capture. The Benchmark Contract inherits these rules and may tighten but not loosen them.
 
-**Explicitly not decided here:** task populations, success metrics, stopping rules, and the train/evaluation
-split *ratio or sampling method*. This ADR governs the isolation guarantee once a split exists; it does not
-choose the split. Those remain Benchmark Contract decisions.
+**Explicitly not decided here:** task populations, success metrics, stopping rules, exact split
+construction, sample sizes, and evaluation-set release policy. This ADR establishes isolation and exposure
+*semantics*; the Benchmark Contract will define how splits are built, how large they are, and when sets are
+released or rotated. Rule 11's lifecycle implies evaluation sets are a consumable resource that must
+eventually be replenished — the replenishment policy is a Benchmark Contract decision, not one made here.
 
 ## Reversibility
 
