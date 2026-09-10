@@ -47,14 +47,16 @@ Six decisions settled: D-01, D-08, D-09, D-17, D-21, D-22 (ADR-0002 … ADR-0006
 **Thirteen decisions settled:** D-01, D-02, D-03, D-05, D-08, D-09, D-10, D-17, D-21, D-22, D-24, D-27, D-28
 (ADR-0002 … ADR-0013).
 
-**Fourteen decisions settled:** D-01, D-02, D-03, D-05, D-08, D-09, D-10, D-13, D-17, D-21, D-22, D-24, D-27,
-D-28 (ADR-0002 … ADR-0014).
+**Fifteen decisions settled:** D-01, D-02, D-03, D-05, D-08, D-09, D-10, D-13, D-17, D-21, D-22, D-24, D-27,
+D-28, D-31 (ADR-0002 … ADR-0015).
 
-**Next blocker: D-31 — context measurement basis.** ADR-0015 proposed 2026-09-10, awaiting review. Without it
-ADR-0003 rule 3's injected-memory parity cannot be enforced preflight or attributed per segment, so rule 9's
-claim boundary is unverifiable.
+**Next blocker: D-12 — decision, prediction and outcome linkage.** No ADR drafted; awaiting owner direction.
+The last unsettled link in the v0 cognitive loop, blocking elements 14 and 15 and upstream of D-07 and D-30.
 
-**D-30** (credit attribution) is unblocked but deliberately not drafted.
+**D-30 is deferred from v0** — see its entry for the assessment and the four conditions.
+
+Remaining after D-12, by specification impact: D-18 (elements 10 partly, 21, 22) · D-07 (16) · D-06 (7 partly,
+17) · D-14 (23) · D-16 (11) · D-11 (19) · D-15 (25) · D-20 (2, 3) · D-04 (6, 7) · D-19 (29).
 
 Earlier blocking analysis, retained for reference:
 
@@ -248,10 +250,15 @@ Where a confidence value comes from at t=0, given that the vision distrusts mode
 **Vision:** 2.7, 3.6, 6.19–6.23, 10.18
 **Status:** pending; **constrained** by ADR-0007. Decision, Prediction, Action and Outcome are historical
 event types, not canonical objects, so linkage must be expressed as references between records rather than
-as fields on a mutable object. **Unblocked by ADR-0008**: `outcome_for`, `execution_of` and
-`evaluates_prediction` make the linkage expressible. **Temporal dependency cleared by ADR-0010** (proposed):
-D-12 must carry the knowledge watermark, may express observation lag as `recorded_at` − `occurred_at`, and
-must keep prediction horizon in payload rather than in a record time field.
+as fields on a mutable object. **Fully unblocked and now the NEXT BLOCKER.** Every dependency is settled:
+ADR-0008 supplies the structural edges (`outcome_for`, `execution_of`, `evaluates_prediction`); ADR-0010
+supplies the knowledge watermark, observation lag as `recorded_at` − `occurred_at`, and the rule that
+prediction horizon lives in payload; ADR-0013 makes the decision's watermark the cycle's; ADR-0014 supplies the
+`ContextAssembled` record the decision references backward.
+
+**Blocks specification elements 14 and 15**, and is **upstream of D-07** (consolidation consumes outcomes) and
+of **D-30** (attribution needs decision→outcome linkage). It is the last unsettled link in the v0 cognitive
+loop: Experience → Episode → Context → Recall → **Decision/Prediction → Action → Outcome** → Consolidation.
 
 What must be recorded at decision time so that prediction error is computable later without hindsight
 contamination; how an outcome binds to the decision that produced it; what happens when an outcome never
@@ -610,16 +617,33 @@ inferred from outcomes" at a scale v0 will not reach.
 Owns both prohibited inferences in the D-13 chain: `PRESENTED → CAUSED DECISION` and
 `DECISION → CAUSED OUTCOME`. Neither may be asserted without a standard this decision supplies.
 
-Depends on D-13 (needs the activation trace as input). **Unblocked by ADR-0014** (proposed), which supplies
-that input: returned, selected, presented and suppressed-with-reason, plus exact presented representations.
-Likely minimal or deferred in v0. ADR-0014 forbids any `influence_score`, `causal_weight`, `credit` or `blame`
-field entering the historical trace except as explicitly attributed estimate content.
+Depends on D-13 (needs the activation trace as input). **Unblocked by ADR-0014**, which supplies that input:
+returned, selected, presented and suppressed-with-reason, plus exact presented representations.
+
+**Deferral assessment (2026-09-10): D-30 can safely remain deferred from v0.** The v0 thesis is an aggregate
+claim — does condition C outperform A and B on unseen related tasks — and ADR-0003 rule 9's claim boundaries
+are all stated at that level. None requires knowing *which memory* produced the improvement. Specification
+element 20 itself says the trace is *"required for later utility measurement"*, confirming deferral was
+intended. Distinguishing genuine transfer from verbatim retrieval (vision 10.41, tension T-5) is served by
+ADR-0004's corpus isolation and by ablation, not by per-memory credit. ADR-0011 rules 12–13 already relocated
+learning-from-use out of the recall path, so no v0 mechanism depends on attribution.
+
+**Deferral conditions, which must hold:** (i) ADR-0014's trace preserves the evidence a later standard needs —
+satisfied; (ii) **D-12 must record decision→outcome linkage** so the raw material exists; (iii) no v0 mechanism
+silently performs attribution — ADR-0014's hard boundary already forbids it; (iv) v0 makes no per-memory
+utility claim.
+
+ADR-0014 forbids any `influence_score`, `causal_weight`, `credit` or `blame` field entering the historical
+trace except as explicitly attributed estimate content.
 
 ### D-31 — Context measurement basis
 
 **Tier:** D2 (scientific / benchmark-adjacent)
 **Vision:** 5.14; `.claude/rules/scientific-method.md`
-**Status:** ADR-0015 proposed 2026-09-10; awaiting owner review. **Discovered while drafting ADR-0014.**
+**Status:** **SETTLED** — ADR-0015 accepted 2026-09-10 after three owner-directed amendments
+(memory-contributed context defined precisely; Context Measurement Profile replaces bare tokenizer identity;
+provider usage is secondary evidence whose divergence is not assumed to cancel).
+**Discovered while drafting ADR-0014.**
 
 ADR-0003 rule 3 requires conditions B and C to share one maximum injected-context budget, and J-4 requires
 token-counting the injected block. Neither says **how** size is measured when a provider does not expose exact

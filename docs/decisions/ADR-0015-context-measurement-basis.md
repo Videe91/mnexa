@@ -1,6 +1,6 @@
 ---
 id: ADR-0015
-status: proposed
+status: accepted
 date: 2026-09-10
 scope: scientific
 vision_refs:
@@ -15,6 +15,22 @@ supersedes: []
 **Tier: D2 (scientific / benchmark-adjacent).** Requires approval before context-budget parity can be verified.
 
 Covers register entry **D-31**.
+
+**Approval:** accepted by owner 2026-09-10, following three owner-directed amendments made while the ADR was
+still `proposed`. The record below is as amended and approved.
+
+**Amendment history (all pre-acceptance, owner-directed):**
+
+1. **Memory-contributed context defined precisely.** The original left the measured quantity unstated, allowing
+   treatment-specific scaffolding to escape the budget by being called formatting, and gave no rule for
+   mixed-provenance segments. — rules 8a–8d, W-12 … W-15.
+2. **"Pinned local tokenizer" replaced by a pinned Context Measurement Profile.** A tokenizer identity alone
+   does not determine a count — wrappers, role boundaries, normalization and special-token handling all
+   contribute. — rules 1–3, W-1, W-4, W-16.
+3. **Provider usage is secondary evidence, not ground truth or cost — and its divergence is not assumed to
+   cancel.** The original justified the local basis partly by arguing measurement error is symmetric across B
+   and C. **That argument was too strong**: B and C contain different memory text, so error can be
+   content-dependent. — rules 4, 4a–4c, 6, W-5, W-7, W-17 … W-19.
 
 ## Decision question
 
@@ -91,32 +107,64 @@ Each of the three does something the others cannot, and the roles do not overlap
 
 ### One normative basis
 
-1. **Exactly one basis is normative for parity enforcement: the pinned local tokenizer (B).** The other two are
-   **recorded but never used for enforcement**. A compound standard is only safe if it is unambiguous which
-   number *is* the budget; three co-equal measures would let a breach be argued away by choosing a favourable
-   one.
+1. **Exactly one basis is normative for parity enforcement: the pinned Context Measurement Profile.** The
+   other two measures are **recorded but never used for enforcement**. A compound standard is only safe if it
+   is unambiguous which number *is* the budget; three co-equal measures would let a breach be argued away by
+   choosing a favourable one.
 
-2. **The enforcement basis must be preflight, deterministic and per-segment.** Preflight because a ceiling
-   enforced after submission is not a ceiling. Deterministic because ADR-0011 requires reproducibility.
-   Per-segment because ADR-0003 rule 3 constrains the *memory-contributed* portion, not the whole request.
+2. **The Context Measurement Profile is one immutable, pinned convention per primary experimental
+   configuration.** A tokenizer identity alone does not determine a count. The profile must resolve enough to
+   deterministically reproduce the normative count, including where relevant:
 
-3. **The tokenizer identity and version are pinned and recorded** on every `ContextAssembled` record, under
-   ADR-0011's environment-identity rules. Changing it is a configuration change that must be visible in the
-   record, not a silent drift.
+   - tokenizer implementation or artefact identity;
+   - tokenizer version and hash;
+   - normalization rules;
+   - special-token handling;
+   - model and message wrapper accounting;
+   - role and message-boundary accounting;
+   - tool-schema accounting where included;
+   - canonicalization and serialization rules relevant to the normative count;
+   - any other deterministic accounting rule the chosen model interface requires.
+
+   It does **not** require provider-private tokenization internals, which are unavailable.
+
+   **The profile is the normative experimental measurement convention.** It is not a claim to reproduce the
+   provider's internal physical token accounting.
+
+3. **The normative count is reproducible and preflight.** For a given canonical `ContextAssembled` input and a
+   given pinned profile, the count must be reproducible. The B/C memory allowance is enforced using the profile
+   **before** model invocation — a ceiling checked after submission is not a ceiling. The profile identity and
+   hash are preserved in the relevant trace so historical parity can be audited later.
 
 ### The recorded measures
 
-4. **Provider-reported usage is recorded when available**, for cost auditing and for rule 6's divergence check.
-   It is never the enforcement basis, and its absence never blocks a run.
+4. **Provider-reported usage is post-hoc audit evidence.** The term is deliberate: it is what the provider
+   reported, **not** a universal token ground truth. It is recorded when available, never used for enforcement,
+   and its absence never blocks a run.
 
-5. **Character and byte counts are recorded per segment**, as model-independent evidence that remains
-   interpretable after any tokenizer change.
+4a. **Provider-reported categories are preserved as reported.** Raw categories and enough identity and
+   semantics to understand what they mean are retained. Distinct categories are **not** silently collapsed into
+   one number where the distinction — cached versus uncached input, for instance — materially affects resource
+   analysis.
 
-6. **Divergence between the enforcement basis and provider-reported usage is measured and reported.** If the
-   pinned tokenizer systematically understates or overstates the provider's accounting, equal enforced budgets
-   may not mean equal actual cost — which would weaken exactly the parity ADR-0003 rule 3 exists to establish.
-   The divergence is therefore a reported quantity, not an implementation detail. *What magnitude counts as
-   material is a Benchmark Contract threshold, not settled here.*
+4b. **Provider usage is not monetary cost.** If monetary cost is calculated later, the applicable pricing
+   schedule and billing semantics must be separately identifiable, because pricing changes without the
+   historical invocation changing. This ADR does not design a financial-cost subsystem.
+
+5. **Character and byte counts are recorded per segment** for the canonical presented material, as durable
+   provider-independent descriptive evidence. **They are never represented as direct measures of inference
+   compute.**
+
+6. **Divergence is measured, and is not assumed to cancel.** The experiment record must permit comparing the
+   normative profile measurement against provider-reported actual request usage wherever the latter exists.
+
+   **Do not assume local measurement error cancels merely because B and C use the same model.** B and C contain
+   different memory text, so measurement error can be content-dependent and therefore treatment-dependent.
+
+   Where divergence is material, or systematically differs between treatments, it must be surfaced as a
+   **resource-parity validity concern** — not hidden behind the observation that the normative budget passed.
+   *Tolerance, diagnostic method and the consequence of material divergence are predeclared by the Benchmark
+   Contract, not chosen here.*
 
 ### Honesty
 
@@ -128,6 +176,37 @@ Each of the three does something the others cannot, and the roles do not overlap
 
 8. **Parity is enforced over the memory-contributed allowance only.** Total request input is **recorded, not
    equalised**.
+
+8a. **"Memory-contributed" means model-visible material contributed by the persistent-memory treatment**, and
+   is measured against the final `ContextAssembled` representation that would actually be supplied to the
+   reasoning seat — **never** the size of the source memories before formatting or transformation.
+
+   It includes, where applicable: recalled memory text; excerpts; summaries; model-generated memory
+   transformations; memory-specific labels; citations and provenance displayed to the model; headers;
+   separators; annotations; treatment-specific instructions; and any other model-visible scaffolding that
+   exists **because** persistent memory is being supplied.
+
+   **Treatment-specific material must not escape the memory budget by being classified as formatting.**
+   Model-visible material that is genuinely common to the compared conditions — treatment-independent — may
+   remain outside the allowance.
+
+8b. **Mixed-provenance segments count in full.** ADR-0014 rule 7a permits one presented segment to derive from
+   several sources — a persistent memory `M7` plus a live tool result `T3` synthesised into segment `S4`. For
+   v0, fractional or subjective attribution is avoided:
+
+   > **If a presented segment has any persistent-MNEXA-memory ancestry, the entire model-visible segment counts
+   > toward the memory-contributed budget.**
+
+   This may over-count, and that is the intended direction: it prevents memory content being laundered through
+   mixed-source synthesis, and it is mechanically enforceable. A future version may supersede it with finer
+   attribution **on evidence**.
+
+8c. **Accounting is over presented model-visible material.** Where only an excerpt or transformation was
+   presented, the full size of the underlying source object is **not** counted — only what actually appeared.
+
+8d. **Condition A receives no artificial memory block.** A injects no persistent memory and is **never padded**
+   with meaningless tokens to equalise context size. Its lack of persistent-memory context *is* the
+   experimental condition.
 
    This follows from ADR-0003 rather than extending it. Rule 1 already fixes the reasoning seat's task-visible
    information identically across conditions, so non-memory portions do not differ by treatment; rule 3
@@ -146,17 +225,25 @@ Each of the three does something the others cannot, and the roles do not overlap
 
 | ID | Invariant | How checked |
 |---|---|---|
-| W-1 | Exactly one basis is normative for enforcement | Assert the enforcement basis is the pinned tokenizer; assert no enforcement path reads provider usage or character counts |
+| W-1 | Exactly one basis is normative for enforcement | Assert the enforcement basis is the pinned Context Measurement Profile; assert no enforcement path reads provider usage or character counts |
 | W-2 | Budget enforcement occurs before submission | Assert the ceiling is evaluated preflight; assert no path submits first and checks after |
 | W-3 | Memory-contributed size is attributable per segment | Assert per-segment sizes exist and sum consistently with the memory-contributed total |
-| W-4 | Tokenizer identity and version are recorded per assembly | Assert non-null on every `ContextAssembled`; assert a change is visible between records |
+| W-4 | Measurement-profile identity and hash are recorded per assembly | Assert non-null on every `ContextAssembled`; assert a profile change is visible between records |
 | W-5 | Provider-reported usage is recorded where available | Assert the field is populated when the provider supplies it, and explicitly marked unavailable otherwise |
 | W-6 | Character and byte counts are recorded per segment | Assert both present for every segment |
 | W-7 | Divergence between enforcement basis and provider usage is computed and reported | Assert the experiment record carries the divergence per run where provider usage exists |
-| W-8 | No measurement is labelled exact beyond its basis | Assert each recorded measure names its basis; assert tokenizer-based figures are not described as provider-exact |
+| W-8 | No measurement is labelled exact beyond its basis | Assert each recorded measure names its basis; assert profile-based figures are not described as provider-exact, and character counts are not described as compute measures |
 | W-9 | `budget_B == budget_C` for the memory-contributed allowance, and A's is zero | Assert declared allowances equal for B and C under the enforcement basis (satisfies ADR-0003 J-4) |
 | W-10 | Total request input is recorded but never equalised | Assert totals are recorded; assert no path pads or trims to force equality |
-| W-11 | Consumption is never constrained to equality | Assert only the ceiling is enforced; assert actual usage below the ceiling is never adjusted |
+| W-11 | Consumption is never constrained to equality | Assert only the ceiling is enforced; assert actual usage below the ceiling is never adjusted, e.g. `B 1900/2000` alongside `C 1200/2000` is valid |
+| W-12 | Memory-contributed size is measured on the presented representation, not the source | Assert the counted quantity is the `ContextAssembled` segment content; assert source-object size is never substituted |
+| W-13 | Treatment-specific scaffolding is inside the memory budget | Assert labels, headers, separators, citations, annotations and treatment-specific instructions that exist because memory is supplied are counted; assert none is excluded as formatting |
+| W-14 | Any segment with persistent-memory ancestry counts in full | Fixture synthesising a memory with a live tool result; assert the whole segment counts toward the memory allowance |
+| W-15 | Condition A is never padded | Assert no synthetic memory block or filler is added to A |
+| W-16 | The normative count is reproducible from canonical input plus profile | Recompute from the recorded `ContextAssembled` and profile; assert the count matches |
+| W-17 | Provider-reported categories are preserved as reported | Assert distinct categories such as cached versus uncached are retained separately, not summed |
+| W-18 | Provider usage is not treated as monetary cost | Assert no path derives cost without a separately identified pricing schedule |
+| W-19 | Divergence is reported per treatment, not pooled | Assert divergence is computed separately for B and C so treatment-dependent error is visible |
 
 ## Evidence and rationale
 
@@ -174,12 +261,32 @@ hand C more tokens, and the advantage would be invisible in the very measure use
 same shape of failure ADR-0012 rule 10 identified for post-filtered top-k: a check that passes while the thing
 it protects has already been violated.
 
-**Option B's known inaccuracy is acceptable because it is symmetric.** The pinned tokenizer may disagree with
-the provider, but it disagrees the *same way* for B and for C, since ADR-0003 rule 1 fixes one model and this
-ADR fixes one tokenizer. Parity is a comparison, and a consistent bias cancels in a comparison while an
-asymmetric one does not. Rule 6 exists because that cancellation is an assumption worth measuring rather than
-asserting — if divergence turns out to be content-dependent rather than uniform, it stops cancelling, and the
-project should discover that from its own records rather than from a reviewer.
+**On the local basis's inaccuracy, an earlier draft argued too strongly.** It claimed the profile's
+disagreement with the provider is symmetric across B and C, so a consistent bias cancels in a comparison.
+**That argument does not hold.** B and C contain *different memory text* — retrieved chunks versus consolidated
+representations — and tokenizer disagreement is content-dependent. A bias that varies with content is a bias
+that varies with treatment, and treatment-dependent measurement error does not cancel; it is indistinguishable
+from a treatment effect.
+
+The profile is therefore justified on its *function*, not on an assumed cancellation: it is the only candidate
+that can enforce a ceiling before compute is spent and attribute size per segment. Rule 6 exists because the
+cancellation cannot be assumed — divergence must be computed **per treatment** (W-19) so a treatment-dependent
+error is visible rather than pooled into an average that hides it. Where such divergence appears, it is a
+resource-parity validity concern in its own right, and reporting that the normative budget passed is not an
+answer to it.
+
+**Rules 8a–8c decide what is actually being counted, which is where a budget is most easily evaded.** The
+tempting reading of "memory-contributed" is *the memories*, but what reaches the model is memories plus the
+apparatus that presents them — labels, citations, separators, and any instruction that exists only because
+memory is being supplied. Classifying that apparatus as formatting would let condition C receive
+treatment-specific prompt material outside the budget meant to constrain it, which is precisely the leak
+ADR-0003 rule 3 exists to prevent.
+
+Rule 8b takes the conservative side of a genuine trade. Fractional attribution across a synthesised segment
+would be more accurate in principle and unenforceable in practice, since any split is a judgement. Counting the
+whole segment over-counts C's memory usage — which disadvantages C — and that is the right direction for a rule
+protecting against C gaining an unfair advantage. A rule whose error favours the treatment it constrains is not
+a rule.
 
 **Rule 1 is what makes a compound standard defensible rather than evasive.** Recording three numbers is only an
 improvement if one of them is unambiguously the rule; otherwise a compound standard becomes a menu, and any
@@ -206,8 +313,9 @@ efficiency gains rather than suppressing them.
 **Harder:** a tokenizer must be maintained and pinned; three measures must be recorded per segment; divergence
 must be computed per run; consumers must be disciplined about which measure is normative.
 
-**Newly required:** a pinned tokenizer identity in environment configuration; per-segment token, character and
-byte counts; provider-usage capture with an explicit unavailable marker; a divergence computation in the
+**Newly required:** a pinned Context Measurement Profile per experimental configuration, with identity and
+hash recorded per assembly; per-segment profile, character and byte counts; provider-usage capture preserving
+reported categories, with an explicit unavailable marker; a per-treatment divergence computation in the
 experiment record.
 
 **Constrained or unblocked:**
@@ -221,7 +329,8 @@ experiment record.
   fixes the basis, never the numbers.
 
 **No new durable decision uncovered.** Non-text segment measurement is out of scope because v0 context is text;
-should non-text material enter later, the basis question reopens for it specifically.
+should non-text material enter later, the basis question reopens for it specifically. The financial-cost
+subsystem implied by rule 4b is likewise out of scope and is not registered, since v0 makes no cost claim.
 
 ## Reversibility
 
@@ -234,9 +343,9 @@ the record (W-4), not a migration.
 
 Revisit if:
 
-- divergence between the pinned tokenizer and provider usage proves **content-dependent** rather than uniform,
-  which would break the symmetry argument and require either a provider-matched tokenizer or a wider parity
-  margin; or
+- divergence proves materially treatment-dependent, which rule 6 anticipates and W-19 is designed to expose —
+  requiring either a provider-matched profile, a wider parity margin, or an explicit validity caveat on the
+  affected result; or
 - provider usage is unavailable often enough that cost auditing becomes unreliable, which would weaken rule 6's
   check without affecting enforcement; or
 - per-segment attribution proves impossible for some assembly strategy, indicating rule 2's per-segment
