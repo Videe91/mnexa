@@ -1,6 +1,6 @@
 ---
 id: ADR-0008
-status: proposed
+status: accepted
 date: 2026-09-10
 scope: constitutional
 vision_refs:
@@ -16,6 +16,19 @@ supersedes: []
 **Tier: D3 (constitutional).** Requires explicit owner approval.
 
 Covers register entry **D-24**.
+
+**Approval:** accepted by owner 2026-09-10, following one owner-directed amendment made while the ADR was
+still `proposed`. The record below is as amended and approved.
+
+**Amendment history (pre-acceptance, owner-directed):**
+
+1. **Structural admission is evidence-based, not actor-based.** The original rule 2 and P-10 tested whether a
+   model participated. That is the wrong boundary in both directions: a model may legitimately *propose* a
+   relationship the runtime then independently verifies, while a human or heuristic performing semantic
+   judgement is producing interpretation despite no model being involved. The test is now the admissibility
+   of the *evidence*, with an enumerated basis list. The amendment additionally requires immutable relation
+   basis/provenance, narrows relation semantics against truth import, and requires representational
+   equivalence between inline and `RelationshipRecorded` forms. — rules 2, 9–12, invariants P-10, P-12 … P-16.
 
 ## Decision question
 
@@ -116,10 +129,24 @@ Eight rules, answering the six questions in order.
 1. **Historical records may reference historical records, structurally only.** Permitted through a declared
    structural relationship vocabulary and no other way.
 
-2. **The structural test.** A relationship qualifies only if its existence is determined by runtime or source
-   correlation — identifiers the emitter already holds, or a correlation defined by an authoritative external
-   protocol — without semantic inference. Operationally: **no model may participate in establishing a
-   structural edge.** If deciding the edge required a model call, it is not structural.
+2. **Structural admission is evidence-based.** A historical→historical structural relationship may be
+   admitted only when the trusted runtime can establish it from **non-semantic, machine-verifiable
+   structural or correlation evidence**. The test is the evidence, not the actor.
+
+   Admissible bases include, where applicable:
+
+   - explicit prior-record identity carried in the emitted event;
+   - execution or run identifier;
+   - trace parent identifier;
+   - request/response correlation identifier;
+   - transaction identifier;
+   - protocol-defined parent/child identity;
+   - an authoritative source explicitly targeting a particular prior record, where what history records is
+     that targeting relationship.
+
+   Semantic similarity, model judgement, human interpretation, inferred causation, and "these appear
+   related" are **not** admissible bases. Neither the presence nor the absence of a model is decisive:
+   a model may propose, and a human may still be interpreting.
 
    Provisional v0 vocabulary: `outcome_for` · `execution_of` · `response_to` · `correction_of` ·
    `evaluates_prediction` · `continuation_of`. `correction_of` is the mechanism ADR-0002 rule 3 assumed.
@@ -162,6 +189,37 @@ Eight rules, answering the six questions in order.
    under ADR-0007, added to that ADR's provisional event-type list — exactly the extension path ADR-0007
    amendment 2 kept open. The canonical object count is unchanged (ADR-0007 N-1, N-8).
 
+### Proposals, basis and semantics
+
+9. **Proposals do not create edges.** A model or a human may propose "R20 may be related to R10". That
+   proposal may itself be recorded historically where appropriate. It does **not** create a structural edge
+   unless the trusted runtime can independently satisfy rule 2. Where no admissible structural evidence
+   exists, the claimed relationship belongs on the interpretive plane.
+
+10. **Relation basis is immutable and hashed.** Every structural relationship preserves enough immutable
+    admission evidence to answer *why was this relation allowed onto the historical plane*. The relation
+    type, target record identity and relation-basis material are part of the immutable content identity of
+    whichever record establishes the relationship — the referencing ExperienceRecord for an inline edge, the
+    `RelationshipRecorded` for a later one. A stable immutable **reference** to admissible evidence is
+    sufficient; redundant raw data need not be duplicated.
+
+11. **A structural relation states only its defined structural meaning.** It carries no truth import.
+
+    - `CorrectionReceived R100 —correction_of→ R50` means R100 was issued or received as a correction
+      targeting R50. It does **not** mean every claim in R50 is false.
+    - `OutcomeObserved R30 —evaluates_prediction→ R10` means the runtime, source or protocol structurally
+      paired that outcome with that prediction. The edge does **not** assert whether the prediction was
+      correct.
+
+    No historical relation vocabulary may smuggle in `caused_by`, `proves`, `explains`, `supports_truth_of`
+    or `contradicts_truth_of` — unless what history records is explicitly that some **attributed source made
+    such an assertion**, which is a record of an assertion, not MNEXA establishing it as historical truth.
+
+12. **Representational equivalence.** A relation type has identical core semantics whether captured inline or
+    via `RelationshipRecorded`. The only difference is temporal and provenance: inline means the relationship
+    was established when the referencing event was committed; `RelationshipRecorded` means it became
+    established or recorded later. Two representations must never acquire two epistemic meanings.
+
 ### Invariants and how each is checked
 
 | ID | Invariant | How checked |
@@ -175,7 +233,12 @@ Eight rules, answering the six questions in order.
 | P-7 | No mechanism exists to add or alter an inline edge after commit | Interface test asserting no such operation is exposed; this is what makes rule 7 self-enforcing rather than a convention |
 | P-8 | Appending a `RelationshipRecorded` mutates neither endpoint | Hash both endpoints before and after; assert unchanged |
 | P-9 | `RelationshipRecorded` endpoints are covered by its own content hash | Recompute including both endpoint identities; assert match |
-| P-10 | No model participates in establishing a structural edge | Assert no model invocation occurs in the structural-edge emission path, cross-checked against ADR-0003 J-5 metering; any edge requiring a model call is rejected as non-structural |
+| P-10 | Every structural edge is admitted on evidence from the declared admissible-basis list | Assert each edge records an admission basis whose type ∈ the admissible enum; reject commit otherwise. Assert semantic-similarity, model-judgement and human-judgement bases are absent from that enum |
+| P-12 | A proposal alone never creates a structural edge | Assert every stored structural edge carries a runtime-verified basis; assert any proposed relation lacking one exists only as an Interpretation or as recorded proposal content, never as a historical edge |
+| P-13 | Relation basis is covered by the establishing record's content hash | Recompute the record hash including relation type, target identity and basis material; assert it matches |
+| P-14 | Relation basis references resolve | Assert every basis reference resolves to existing immutable evidence |
+| P-15 | Structural relations carry no truth import | Assert the vocabulary definition of each relation type records its explicit non-implications; assert no consumer path derives a truth value from an edge type alone |
+| P-16 | A relation type means the same inline and via `RelationshipRecorded` | Assert both representations resolve to one vocabulary definition; assert no representation-specific semantic override exists |
 | P-11 | Adding `RelationshipRecorded` does not change the canonical object count | Assert ADR-0007 N-1 still holds |
 
 ## Evidence and rationale
@@ -194,11 +257,21 @@ and revisability it has no use for, while making trajectory replay depend on int
 The austerity that matters is rule 3's, which keeps *meanings* off the plane, not rule 1's, which would keep
 *facts* off it.
 
-Rule 2's model-participation test is what makes the structural/interpretive boundary enforceable rather than
-a matter of good intentions. "Determined by correlation, not inference" is easy to state and hard to check
-directly; "no model was called" is checkable, and it happens to draw the line in the right place, because
-every relationship requiring semantic judgement will need one. The check reuses the metering ADR-0003 J-5
-already requires, so it costs nothing new.
+Rule 2 makes the structural/interpretive boundary enforceable by testing the evidence rather than the actor.
+An actor-based test fails both ways: it would reject a model-proposed relationship that the runtime then
+verifies against a trace parent identifier — which is structurally admissible however it was suggested — and
+it would accept a human's semantic judgement, which is interpretation whatever produced it. Enumerating
+admissible bases makes the check mechanical (P-10) without making it a proxy for who was in the room.
+
+Rule 10 is what stops the vocabulary allowlist from being the only defence. An allowlist constrains what an
+edge is *called*; the basis record constrains what it was *established from*, and it is the second that can
+be audited after the fact. Requiring the basis inside the content hash means an edge cannot later acquire a
+justification it did not have at commit.
+
+Rule 11 addresses a failure that would otherwise be invisible: a permitted structural edge quietly read as a
+truth claim. `correction_of` naming a prior record is the obvious case — the temptation to treat the target
+as refuted is strong, and wrong, in exactly the way ADR-0006 rule 2 found for supersession. Stating each
+relation's non-implications in the vocabulary itself gives P-15 something to check.
 
 Rule 5's direction convention — later points backward — is what turns preexistence into a usable design
 rather than a constraint to work around. The natural temptation is to model a decision as owning its outcome,

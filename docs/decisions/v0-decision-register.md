@@ -40,10 +40,10 @@ the highest-risk items in this register.
 
 Six decisions settled: D-01, D-08, D-09, D-17, D-21, D-22 (ADR-0002 … ADR-0006).
 
-**Next blocker: D-24 — historical-to-historical reference semantics.** ADR-0008 proposed 2026-09-10,
-awaiting review. Surfaced ahead of D-03 because it blocks D-12 and interacts with D-05.
+**Next blocker: D-03 — episode construction and boundary authority.** ADR-0009 proposed 2026-09-10,
+awaiting review.
 
-D-03 (episode construction authority) is unblocked and narrowed, awaiting its turn.
+Eight decisions settled: D-01, D-02, D-08, D-09, D-17, D-21, D-22, D-24 (ADR-0002 … ADR-0008).
 
 **D-23 is deferred.** It is not required to write a correct v0 specification: ADR-0006 treats all
 supersessions uniformly, which is complete and safe, and classification would only refine signal quality.
@@ -101,11 +101,8 @@ closes the loop. Which objects exist in v0 is durable because later phases exten
 
 **Tier:** D3 (epistemic semantics)
 **Vision:** 2.3, 3.8, 3.2, 10.7
-**Status:** pending; **narrowed** by ADR-0007. Episode's plane is fixed as interpretive (Interpretation of
-kind `episode`), resolving tension T-1. D-03 is now purely about construction: who draws boundaries, whether
-generation is model-based/deterministic/hybrid/externally supplied, when episodes form, and boundary
-revision policy. The coupling that made D-02 and D-03 look inseparable dissolved once criterion β
-(plane follows epistemic meaning, not producer) was adopted — see ADR-0007.
+**Status:** ADR-0009 proposed 2026-09-10; awaiting owner review. Plane was fixed by ADR-0007 (resolving
+tension T-1); ADR-0009 covers construction and authority only.
 
 What exactly constitutes an Episode, what its boundaries are, and *who* draws them: the agent, a
 deterministic rule, or a model. If a model segments episodes, the episode is an interpretation and cannot
@@ -379,7 +376,9 @@ produced D-21 and D-22.
 
 **Tier:** D2
 **Vision:** 2.7, 10.18, 3.6
-**Status:** ADR-0008 proposed 2026-09-10; awaiting owner review. **Discovered while drafting ADR-0007.**
+**Status:** **SETTLED** — ADR-0008 accepted 2026-09-10 after one owner-directed amendment (structural
+admission is evidence-based not actor-based; relation basis immutable and hashed; relations carry no truth
+import; inline and RelationshipRecorded forms share one meaning). **Discovered while drafting ADR-0007.**
 
 **Note:** the gap predates ADR-0007. ADR-0002 rule 3 — correction by appending a superseding record — already
 required a historical→historical reference, and was accepted without the mechanism existing. ADR-0007 made it
@@ -399,6 +398,25 @@ own later outcome — presumably forbidden, but unstated).
 
 **D-12 is blocked on this.** Not decided in ADR-0007 because that ADR's question was object classification,
 and settling reference semantics there would have expanded the decision space beyond what was surfaced.
+
+### D-25 — Episode split and merge identity
+
+**Tier:** D2
+**Vision:** 3.8, 3.19, 2.3
+**Status:** pending. **Discovered while drafting ADR-0009; deferred from v0 there.**
+
+ADR-0009 binds Episode object identity to a deterministic anchor, so an Episode's extent follows its anchor
+and regrouping the same anchor's records is simply a new version. Subdividing one episode into several, or
+combining several into one, only arises when boundaries must cross or partition anchor scopes — which no v0
+contract requires.
+
+The shape is already implied if it becomes needed: a split or merge would produce **new Episode objects
+deriving from the originals' versions**, not new versions of them, because the originals had valid
+independent extents and ordinary supersession would misrepresent that. This mirrors the merge/split reasoning
+that earned Entity its own primitive in ADR-0007.
+
+Deferred rather than decided because it is an identity decision distinct from boundary construction, and
+settling it inside ADR-0009 would have expanded that ADR's surfaced scope.
 
 ---
 
