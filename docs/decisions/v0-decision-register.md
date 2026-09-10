@@ -44,12 +44,13 @@ Six decisions settled: D-01, D-08, D-09, D-17, D-21, D-22 (ADR-0002 … ADR-0006
 
 **Ten decisions settled:** D-01, D-02, D-03, D-05, D-08, D-09, D-17, D-21, D-22, D-24 (ADR-0002 … ADR-0010).
 
-**Eleven decisions settled:** D-01, D-02, D-03, D-05, D-08, D-09, D-10, D-17, D-21, D-22, D-24
-(ADR-0002 … ADR-0011).
+**Twelve decisions settled:** D-01, D-02, D-03, D-05, D-08, D-09, D-10, D-17, D-21, D-22, D-24, D-27
+(ADR-0002 … ADR-0012).
 
-**Next blocker: D-27 — v0 retrieval channel set.** ADR-0012 proposed 2026-09-10, awaiting review. Surfaced
-ahead of D-13 because the Recall contract (element 13) cannot state what recall searches until channels are
-chosen, while D-13 consumes the returned-item contract regardless of which channels produced the items.
+**Next blocker: D-28 — cognitive-cycle knowledge snapshot scope.** ADR-0013 proposed 2026-09-10, awaiting
+review. Confirmed by analysis to block D-13's decision-level regret computation; see the D-28 entry.
+
+**D-13 is next after D-28.**
 
 Earlier blocking analysis, retained for reference:
 
@@ -256,7 +257,8 @@ arrives.
 
 **Tier:** D3 (scientific)
 **Vision:** 3.12, 3.39, 5.36–5.41
-**Status:** **UNBLOCKED by ADR-0011** (proposed), which supplies its input: the returned, version-pinned set
+**Status:** blocked on D-28 (ADR-0013 proposed) for decision-level regret; otherwise **unblocked by ADR-0011**,
+which supplies its input: the returned, version-pinned set
 with presented freshness, plus the retrieval-regret boundary-one computation. D-13 owns
 presented/activated/suppressed and attribution. **Partially settled by ADR-0006** rule 6/M-8 and by
 **ADR-0010 rule 10**,
@@ -487,7 +489,9 @@ have expanded its surfaced scope.
 
 **Tier:** D2
 **Vision:** 5.6, 5.7, 5.10
-**Status:** ADR-0012 proposed 2026-09-10; awaiting owner review. **Discovered while drafting ADR-0011.**
+**Status:** **SETTLED** — ADR-0012 accepted 2026-09-10 after three owner-directed amendments (lexical/exact
+channel added; head-as-of-N default candidate pool; entity channel consumes but never establishes identity).
+**Discovered while drafting ADR-0011.**
 
 Vision 5.6 describes many independent activation routes — semantic, entity, temporal, causal, structural,
 procedural, outcome, risk and historical-utility. ADR-0011 records a per-item retrieval channel and permits
@@ -517,8 +521,17 @@ this decision" answerable only per-recall rather than per-decision.
 Inside an evaluation epoch the question cannot arise, since ADR-0004 rule 9 freezes memory. Outside one — during
 the experience and consolidation phases — it can.
 
-**Materially relevant to D-12 and D-13.** Does **not** block D-27: channel choice is unaffected by how many
-recalls a cycle performs or at which watermarks, since each recall binds its own N regardless.
+**Status update:** ADR-0013 proposed 2026-09-10; awaiting owner review.
+
+**Blocking analysis (performed 2026-09-10):** D-28 **does** block D-13, though not through D-13's data model.
+An activation record can cite its recall and that recall's watermark under any policy. What breaks is D-13's
+central deliverable: decision-level retrieval regret needs one eligible set, and with recalls at differing
+watermarks an item committed between them was ineligible to one and eligible to another — producing false
+positives in exactly the retrieval-versus-attention distinction ADR-0011 rule 18 handed to D-13. ADR-0010 rule
+12's requirement that a decision carry *a* watermark is also under-determined until this is settled.
+
+Did **not** block D-27: channel choice is unaffected by how many recalls a cycle performs, since each binds its
+own N regardless.
 
 Not decided in ADR-0011 because that ADR's scope was a single recall operation's evidence contract.
 

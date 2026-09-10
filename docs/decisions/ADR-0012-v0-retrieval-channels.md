@@ -1,6 +1,6 @@
 ---
 id: ADR-0012
-status: proposed
+status: accepted
 date: 2026-09-10
 scope: component
 vision_refs:
@@ -16,6 +16,22 @@ supersedes: []
 **Tier: D2.** Requires approval before the Recall contract may be written.
 
 Covers register entry **D-27**.
+
+**Approval:** accepted by owner 2026-09-10, following three owner-directed amendments made while the ADR was
+still `proposed`. The record below is as amended and approved.
+
+**Amendment history (all pre-acceptance, owner-directed):**
+
+1. **A lexical/exact channel was added.** The original excluded it on the grounds that identifiers matter
+   especially in the anticipated coding benchmark, so admitting it would be domain-specific tuning. **That
+   reasoning was wrong** — it mistook the capability's most visible instance for its justification. Exact
+   surface form is a domain-general addressing mode, distinct from meaning and from entity continuity. — rules
+   1–3, T-1.
+2. **Default candidate generation operates on head-as-of-N, not every version.** The original said all versions
+   of an object are distinct candidates, which is true for provenance and wrong for the ordinary recall
+   candidate pool. — rules 10–11, T-6, T-12.
+3. **The entity channel must not settle D-04.** The original did not state the boundary between consuming an
+   established identity interpretation and establishing one. — rule 6, T-13, T-14.
 
 ## Decision question
 
@@ -81,28 +97,42 @@ Adding it as a channel buys nothing the signal does not.
 
 ### Recommendation
 
-**A narrowed form of B: two channels — semantic and entity.** Structural provenance traversal is retained as a
-**port operation** rather than a channel, and temporal recency as a **ranking signal** rather than a channel.
-Exact/lexical matching is **not in v0** but remains addable under ADR-0011's channel field.
+**Three channels — semantic, lexical/exact, and entity.** They represent three genuinely different addressing
+modes:
+
+```text
+meaning          →  semantic
+surface form     →  lexical / exact
+entity continuity →  entity
+```
+
+Structural provenance traversal is retained as a **port operation** rather than a channel, and temporal
+recency as a **ranking signal** rather than a channel. No temporal, causal, provenance, prospective, graph or
+learned-attention channel is added.
 
 ## Decision
 
 *(Proposed. Not approved.)* Twelve rules.
 
-### The two v0 channels
+### The three v0 channels
 
-1. **Semantic channel.** Retrieves candidates by embedding similarity over a declared text projection of the
-   object. Operates over **`Interpretation` versions** (kinds `episode` and `belief`) and **`ExperienceRecord`
-   payloads**. Its channel-local evidence is a similarity score whose algorithmic meaning is declared under
-   ADR-0011 rule 10.
+1. **Semantic channel — retrieval by meaning.** Candidates by embedding similarity over a declared text
+   projection of the object. Operates over **`Interpretation` versions** (kinds `episode`, `belief`) and
+   **`ExperienceRecord` payloads**. Channel-local evidence is a similarity score whose algorithmic meaning is
+   declared under ADR-0011 rule 10.
 
-2. **Entity channel.** Given entities present in the ContextFrame, retrieves candidates bound to those
-   entities. Resolution runs through `identity_binding` interpretations at their **head-as-of-N**
+2. **Lexical/exact channel — retrieval by surface form.** Candidates by exact or lexical surface evidence over
+   the same objects. This addresses content that meaning-based retrieval does not reliably reach: names,
+   identifiers, error codes, SKUs, legal clause references, quoted phrases, dates, technical terminology and
+   external reference numbers. Channel-local evidence is a match kind and matched span — **not** a similarity
+   score, and not comparable to one.
+
+3. **Entity channel — retrieval by entity continuity.** Given entities present in the ContextFrame, candidates
+   bound to those entities, resolved through `identity_binding` interpretations at their **head-as-of-N**
    (ADR-0011 rule 4). Operates over **`ExperienceRecord`s** reached via bindings and over **`Interpretation`
-   versions** that reference the Entity. Its channel-local evidence is a binding reference and match kind, not
-   a similarity score.
+   versions** referencing the Entity. Channel-local evidence is a binding reference and match kind.
 
-3. **Both channels may return `ExperienceRecord`s as well as `Interpretation` versions.** Vision 5.28–5.29
+3a. **All three channels may return `ExperienceRecord`s as well as `Interpretation` versions.** Vision 5.28–5.29
    require cognition to move between compressed knowledge and raw experience; a channel set that returned only
    interpretations would make the lower rungs unreachable. Which kinds a given recall wants is filtered by the
    request's requested-kinds field (ADR-0011 rule 8).
@@ -117,8 +147,27 @@ Exact/lexical matching is **not in v0** but remains addable under ADR-0011's cha
 5. **Temporal recency is a ranking signal, not a channel.** It may inform the ranking stage under rule 8. It
    does not generate candidates.
 
-6. **Exact/lexical matching is not in v0**, and no accepted v0 element requires it. It remains addable later
-   through ADR-0011's channel field without contract change.
+6. **The entity channel consumes identity interpretations; it never establishes them.** D-04 remains
+   unresolved, and this ADR does not settle it. The channel may use entity identities and `identity_binding`
+   interpretations that are valid and available `AS_OF(N)`. It must **not** establish that *query identifier X
+   objectively refers to Entity E* merely because it needs an entity key — identity resolution is interpretive
+   under ADR-0007 and stays there.
+
+   Concretely:
+
+   - entity references used for recall are version-pinned or resolved `AS_OF(N)`;
+   - "current head" means head-as-of-N, never current-now;
+   - `identity_binding` interpretations consulted during retrieval also respect N;
+   - **ambiguous or unresolved identity is never converted into certain entity membership for retrieval
+     convenience.** Where resolution is ambiguous at N, the channel may generate candidates from each matching
+     entity **with the ambiguity recorded**, or return none — it may not silently pick one. If ambiguity caused
+     truncation, it contributes to completion status under ADR-0011 rule 11;
+   - the channel owns candidate generation *from* an established entity interpretation, not the epistemic
+     authority to establish that interpretation.
+
+   **D-04 is not blocking for this channel's specification.** Candidate generation is fully specifiable
+   against whatever bindings exist. What D-04 governs is how bindings come to exist and what makes two
+   references the same — which determines the channel's *yield*, not its contract.
 
 ### Merging and ranking
 
@@ -130,23 +179,42 @@ Exact/lexical matching is **not in v0** but remains addable under ADR-0011's cha
    so ordering the union requires one declared ranking policy that states how it combines them. Both the
    channel-local meanings and the combination rule are recorded (ADR-0011 rules 9–10, S-10).
 
-9. **Deduplication is by version identity, never object identity.** Two different versions of one object are
-   distinct candidates, not duplicates. Whether the policy collapses them to head-as-of-N is a policy choice,
-   declared and recorded in the evidence.
+9. **Deduplication collapses the same immutable version found through multiple routes**, retaining all
+   channel attributions for that one candidate.
+
+10. **Default candidate generation operates on the eligible head-as-of-N, not every historical version.**
+    For a versioned interpretive object:
+
+    ```text
+    B17 v1
+    B17 v2
+    B17 v3   ← head AS_OF(N)
+    ```
+
+    ordinary current-state recall considers `B17 v3` **once**, rather than letting v1, v2 and v3 independently
+    occupy ranking capacity. Superseded versions are distinct immutable objects for provenance and historical
+    purposes, but that does not entitle them to compete in the default candidate pool.
+
+11. **Older versions remain fully accessible and are never deleted, collapsed or rewritten.** They stay
+    reachable for forensic replay, provenance traversal, historical queries, contradiction and revalidation
+    work, and explicitly requested version-history retrieval. **What ADR-0012 assumes:** that non-head versions
+    are reachable through explicit version-scoped requests and through provenance traversal (rule 4), both of
+    which ADR-0011's request contract accommodates via its requested-kinds and scope fields. Rule 10 governs
+    the *default* pool only; it grants nothing about what an explicit request may ask for.
 
 ### `AS_OF(N)` in retrieval
 
-10. **Filtering must occur within the search, not after it.** An index may physically contain items committed
+12. **Filtering must occur within the search, not after it.** An index may physically contain items committed
     after N. Retrieving a top-k and *then* discarding ineligible items is **not** equivalent to `AS_OF(N)`
     retrieval: the discarded items displaced eligible ones from the result. Either the search filters within
     itself, or it over-fetches and re-ranks the eligible subset, and **which strategy was used is recorded**.
 
-11. **Entity heads resolve as-of N.** Entity-channel resolution uses `identity_binding` heads-as-of-N, so a
+13. **Entity heads resolve as-of N.** Entity-channel resolution uses `identity_binding` heads-as-of-N, so a
     later re-resolution never changes what an earlier recall would have found (ADR-0011 rules 3, 4).
 
 ### Filters, scope and evidence
 
-12. **Filters and permissions apply inside the `AS_OF(N)` view and before ranking, and are recorded.**
+14. **Filters and permissions apply inside the `AS_OF(N)` view and before ranking, and are recorded.**
     Namespace scope (D-16) is a hard filter. Where a permission or filter caused truncation, it contributes to
     the recall's completion status under ADR-0011 rule 11 — and per ADR-0011 rule 11a, normal completion never
     implies exhaustiveness.
@@ -161,12 +229,15 @@ Exact/lexical matching is **not in v0** but remains addable under ADR-0011's cha
 
 | ID | Invariant | How checked |
 |---|---|---|
-| T-1 | Exactly two retrieval channels are active in v0 | Assert the channel registry contains `semantic` and `entity` and no other enabled channel |
-| T-2 | Both channels can return `ExperienceRecord`s and `Interpretation` versions | Assert each channel's admissible result kinds include both |
+| T-1 | Exactly three retrieval channels are active in v0 | Assert the channel registry contains `semantic`, `lexical` and `entity`, and no other enabled channel |
+| T-2 | All three channels can return `ExperienceRecord`s and `Interpretation` versions | Assert each channel's admissible result kinds include both |
 | T-3 | Entity resolution uses `identity_binding` head-as-of-N | Fixture where a binding was re-resolved after N; assert the recall resolves via the binding current at N |
 | T-4 | Eligibility filtering occurs within the search, not after top-k | Fixture where post-N items would otherwise occupy top-k slots; assert eligible items are not displaced; assert the strategy used is recorded |
 | T-5 | Every candidate carries attribution to all channels that produced it | Assert an item found by both channels appears once with both attributions |
-| T-6 | Deduplication is by version identity | Assert two versions of one object remain distinct candidates; assert any collapse is a declared policy recorded in evidence |
+| T-6 | The same immutable version found via multiple channels is one candidate with all attributions | Assert single occurrence; assert every producing channel's attribution is retained |
+| T-12 | Default candidate generation uses head-as-of-N, and older versions stay retrievable | Assert the default pool contains at most one version per interpretive object; assert an explicit version-scoped request still resolves superseded versions; assert no superseded version is deleted or rewritten |
+| T-13 | The entity channel establishes no identity | Assert no `identity_binding` is created, modified or promoted during retrieval; assert `committed_by` records no binding written on the recall path |
+| T-14 | Ambiguous identity is never silently resolved | Fixture with two matching bindings at N; assert the channel does not pick one, records the ambiguity, and reflects any resulting truncation in completion status |
 | T-7 | Ranking is a single declared policy over the union | Assert one ranking policy identity per recall; assert the combination rule for channel-local evidence is declared |
 | T-8 | Channel-local evidence carries declared algorithmic meaning | Assert each channel's evidence type has a definition (ADR-0011 S-10) |
 | T-9 | Per-channel completion status is recorded | Fixture failing one channel; assert overall status is incomplete and the failing channel is identified |
@@ -186,6 +257,19 @@ accepted object model, and it would hold even if the channel turned out to help 
 **The semantic channel needs no argument beyond necessity.** Without it there is no content-addressed retrieval
 at all, and the request's intent field would have nothing to act on.
 
+**Rule 10's head-as-of-N default is about ranking capacity, not about truth.** Every version of an interpretive
+object is a real immutable object, and ADR-0005 exists to keep them addressable forever. But letting `B17` v1,
+v2 and v3 each compete for slots in a budgeted result would spend the budget on the object's own history rather
+than on distinct intelligence, and would surface superseded interpretations alongside current ones with nothing
+but rank to distinguish them. The default pool takes the head; everything else stays reachable by explicit
+request and by provenance traversal, which is where historical versions are actually wanted.
+
+**Rule 6 keeps the entity channel a consumer.** The channel needs an entity key, and the shortest path to one
+is to resolve an ambiguous identifier and proceed. That would make retrieval an identity-establishing
+operation, which ADR-0007 placed firmly on the interpretive plane and D-04 has not yet specified. Recording the
+ambiguity and declining to resolve it costs recall quality and preserves the boundary; T-14's two-binding
+fixture is the test.
+
 **Two demotions keep the set honest.** Provenance traversal *feels* like a channel because vision 5.8 describes
 spreading activation, but the v0 form of that requirement is answering "why do we believe this", which starts
 from a known item. Calling it a channel would inflate the set without adding a candidate-generation route.
@@ -204,12 +288,18 @@ S-10 and S-11 forbid a retrieval score from becoming an epistemic quantity and r
 channel-local scores cannot simply be normalised together and treated as comparable relevance. Making the
 combination an explicit declared policy is what keeps the comparison auditable instead of emergent.
 
-**Exact/lexical matching was the closest call.** Embedding retrieval is known to miss precise identifiers, and
-the first experimental domain is likely coding — where identifiers matter. That is precisely why it is excluded:
-admitting a channel because it suits the anticipated benchmark domain is domain-specific tuning of a substrate
-required to stay domain-general (vision 10.12, 10.64), and it is the same inadmissible reasoning ADR-0009
-withdrew. If v0 evidence later shows semantic retrieval failing on identifier-shaped queries across domains,
-that is an architectural finding that justifies adding the channel then.
+**The lexical channel's exclusion was an error, and the error is instructive.** The original argued that since
+identifiers matter especially in the anticipated coding domain, admitting a lexical channel would be
+domain-specific tuning — the inadmissible reasoning ADR-0009 withdrew. That inverted the test. ADR-0009's rule
+forbids selecting architecture by *expected benchmark outcome*; it does not forbid a capability because one
+domain displays it prominently. Exact surface form is present in every domain — names, error codes, SKUs, legal
+clause references, quoted phrases, dates, external reference numbers — and semantic similarity does not
+reliably reach it, nor does entity continuity, which covers only what has been resolved into an Entity.
+
+The correct framing is that the three channels are three **addressing modes**, not three heuristics: content
+can be sought by what it means, by how it is literally written, or by which persistent thing it concerns. A
+retrieval layer missing one of those modes has a structural gap, and the coding case is an instance of the gap
+rather than its justification.
 
 ## Consequences
 
@@ -224,9 +314,11 @@ combine incomparable evidence types explicitly rather than implicitly; per-chann
 declared ranking policy combining channel-local evidence; per-channel completion status; in-search eligibility
 filtering.
 
-**Constrained:** D-14 (port surface) gains provenance traversal as a distinct operation. D-16's namespace scope
-becomes a hard retrieval filter (T-11). D-13 is unaffected — it consumes the returned-item contract regardless
-of which channels produced the items, which is why it did not need to precede this decision.
+**Constrained:** D-14 (port surface) gains provenance traversal as a distinct operation, and must expose
+version-scoped requests so rule 11's reachability holds. D-16's namespace scope becomes a hard retrieval filter
+(T-11). **D-04 is not blocked and does not block**: the entity channel is fully specifiable against whatever
+bindings exist, while D-04 governs how bindings arise and therefore the channel's yield. D-13 is unaffected —
+it consumes the returned-item contract regardless of which channels produced the items.
 
 **No new durable decision uncovered.** The text projection used for embedding and the ranking policy are both
 pinned configuration under ADR-0011 rules 2b and 5, recorded by identity rather than decided here.
@@ -246,8 +338,8 @@ Revisit if:
 
 - the entity channel returns almost nothing because identity bindings are sparse in practice, which would
   question whether `Entity` earns its place as a primitive rather than whether the channel does; or
-- semantic retrieval proves unable to find identifier-shaped content across multiple domains, which would
-  justify adding the lexical channel on domain-general evidence; or
+- the lexical channel proves to duplicate the semantic channel's results almost entirely across domains,
+  which would suggest the addressing modes are less distinct in practice than in principle; or
 - combining two incomparable evidence types in one ranking policy proves arbitrary in practice, suggesting
   channel-specific result quotas rather than a merged ranking.
 
