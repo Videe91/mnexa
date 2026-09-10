@@ -1,6 +1,6 @@
 ---
 id: ADR-0011
-status: proposed
+status: accepted
 date: 2026-09-10
 scope: constitutional
 vision_refs:
@@ -16,6 +16,23 @@ supersedes: []
 **Tier: D3 (constitutional / scientific).** Requires explicit owner approval.
 
 Covers register entry **D-10**.
+
+**Approval:** accepted by owner 2026-09-10, following three owner-directed amendments made while the ADR was
+still `proposed`. The record below is as amended and approved.
+
+**Amendment history (all pre-acceptance, owner-directed):**
+
+1. **Identity does not equal recoverability.** The original described the v0 form as recording "identities,
+   not artefacts". That is correct for the retrieval *environment* and wrong for request and result *content*:
+   a hash proves identity but does not let the content be read back. Semantically relevant request and result
+   content must remain recoverable. — rules 2a–2c, S-21, S-22.
+2. **Recall binds a fixed knowledge snapshot.** The original required every read to be `AS_OF(N)` but did not
+   forbid the view advancing mid-operation, nor distinguish the recall's watermark from the evidence record's
+   own commit identity. — rules 3a–3b, S-23, S-24. Surfaced **D-28** rather than settling the cycle-scope
+   question.
+3. **Returned is not presented.** The original said freshness was "presented to cognition", which asserts a
+   D-13 fact from D-10 evidence. Wording corrected throughout to *returned/attached by the recall operation*.
+   — rules 7, 9, 17, S-8.
 
 ## Decision question
 
@@ -104,6 +121,23 @@ Twenty rules.
 2. **The record is the source of historical truth.** Replay reads the `RecallPerformed` record. It never
    invokes the live retrieval mechanism, and never depends on any index, embedding or model still existing.
 
+2a. **Content must be recoverable, not merely identified.** The semantically relevant `RecallRequest` and
+   `RecallResult` content must remain readable back. This may be achieved by storing canonical immutable
+   content directly, **or** by storing an immutable content-addressed reference whose target is retained and
+   resolvable for the required lifetime. **A hash alone proves identity and provides no recoverability.**
+   Historical replay must never depend on an external mutable object that can later change or disappear.
+
+2b. **Environment identity is recorded; environment *recoverability* is conditional.** Policy, configuration,
+   model, index and embedding identities and hashes are preserved on every record. If computational
+   re-execution is **claimed as supported**, the exact required environment must actually be resolvable or
+   reconstructable. If it is not, the rerun status is `unsupported` (rule 15).
+
+2c. **Full index snapshots are not required.** An index may satisfy 2b by being reproducibly reconstructable
+   from the `AS_OF(N)` durable state, a pinned build and configuration identity, a pinned embedding identity
+   and any other required deterministic inputs. Where an approximate or nondeterministic index cannot be
+   recreated exactly, **historical replay remains valid** — it reads the record — while exact computational
+   rerun must not be claimed.
+
 ### What `AS_OF(N)` governs
 
 3. **`AS_OF(N)` governs the entire recall view, not just the results.** It is not sufficient that every
@@ -114,6 +148,21 @@ Twenty rules.
 
    **The rule:** *a recall `AS_OF(N)` may depend only on durable cognitive state eligible at N, plus explicitly
    pinned non-learning runtime configuration.* Anything else leaks future information into a historical recall.
+
+3a. **The snapshot is bound before retrieval begins and does not move.** A recall invocation binds its
+   watermark N up front, and every durable-state read influencing that recall observes the same `AS_OF(N)`
+   view. Commits landing during execution do not become visible partway through:
+
+   ```text
+   recall starts AS_OF(500)
+     … #501, #502, #503 commit while it runs …
+   the recall remains a recall AS_OF(500)
+   ```
+
+3b. **The recall watermark and the evidence record's own commit identity are distinct concepts.** The
+   `RecallPerformed` record for the recall above may itself commit at `#504`. **Its `commit_sequence` is not
+   the recall's knowledge watermark**, and both are preserved separately. Recording the evidence never
+   retroactively changes what was eligible to the recall it describes.
 
 4. **Head selection means head-as-of-N.** Where a policy selects an object's current version, that resolves to
    the latest version with `commit_sequence ≤ N` — well-defined given ADR-0010's visibility linearization.
@@ -137,15 +186,20 @@ Twenty rules.
 
 ### Freshness
 
-7. **Presented freshness is evaluated as-of N and preserved.** ADR-0006 defines freshness as derived state
+7. **Returned freshness is evaluated as-of N and preserved.** ADR-0006 defines freshness as derived state
    over pinned provenance and *current* heads; within a recall, "current" means **as-of N**. If `P v1` was
    `CLEAN` at `#500` and became `DIRECT_STALE` by `#900`, a recall that occurred at `#500` must never be
    reconstructed as though `P v1` was stale then.
 
-   The exact freshness assessment **presented to cognition** is preserved in the recall evidence. This does not
-   contradict ADR-0006 M-13/M-16 — nothing is written onto the interpretive version; the assessment is captured
-   as historical evidence about the recall, which is precisely what ADR-0007 N-11 requires of an influential
-   projection.
+   The exact freshness assessment **returned and attached by the recall operation** is preserved in the
+   evidence. This does not contradict ADR-0006 M-13/M-16 — nothing is written onto the interpretive version;
+   the assessment is captured as historical evidence about the recall, which is what ADR-0007 N-11 requires of
+   an influential projection.
+
+   **This ADR asserts only that the assessment was attached to the returned item.** Whether that item entered
+   cognition, and whether this assessment was what cognition saw, are separate historical facts owned by D-13.
+   ADR-0006 rule 6's requirement — that objects entering active cognition carry a freshness determination — is
+   satisfied jointly: this ADR supplies the returned-side half, D-13 the cognition-side half.
 
 ### Evidence contents
 
@@ -156,7 +210,7 @@ Twenty rules.
 
 9. **The result evidence** contains: the ordered, version-pinned items returned, with rank; the retrieval
    channel per item where the channel materially affects interpretation; the relevance or ranking signals
-   surfaced; the freshness status presented per item; the budget or limit that constrained the result; and the
+   surfaced; the freshness assessment attached per returned item; the budget or limit that constrained the result; and the
    completion status of rule 11.
 
 10. **Ranking signals carry their declared algorithmic meaning.** A retrieval or relevance score is recorded
@@ -169,6 +223,11 @@ Twenty rules.
 11. **Completion status is mandatory, and incompleteness is never silent.** If recall terminates because of a
     timeout, resource cap, unavailable index, permission limitation, partial backend failure or any other
     explicit limit, the evidence carries that status and its reason.
+
+11a. **Completion describes execution of the declared procedure, nothing more.** For approximate retrieval,
+    `COMPLETE` or `NORMAL_COMPLETION` must **not** be read as implying exhaustive examination of every
+    eligible memory, a globally optimal top-k, or proof that no more relevant memory existed. It means the
+    declared algorithm and policy completed normally under their declared scope and budget.
 
     "Returned 5 memories" must never be readable as "these were the best or complete eligible memories" when
     the search itself was incomplete. This is ADR-0006's `CHECK_INCOMPLETE` principle in a second domain, and
@@ -215,7 +274,10 @@ Twenty rules.
     | M7 caused the model to choose Action A | **D-13's attribution semantics**, never inferred from activation |
 
     ADR-0010 rule 10's three levels are preserved: returning establishes eligibility-plus-retrieval, not
-    presentation, and certainly not influence.
+    presentation, and certainly not influence. **No statement in the recall evidence may assert that an item,
+    or its attached freshness assessment, was actually presented to cognition** — that is D-13's fact to
+    establish, and if D-13 later shows this exact assessment entered cognition, that is a separate historical
+    fact recorded separately.
 
 18. **Retrieval-regret preconditions are preserved, not implemented.** The evidence must later distinguish:
 
@@ -252,7 +314,7 @@ Twenty rules.
 | S-5 | No retrieval input with `commit_sequence > N` is consulted | Instrument state reads during recall; assert every durable read resolves ≤ N |
 | S-6 | No adaptive state created after N influences a recall AS_OF(N) | Assert no ranking input derives from state committed after N; fixture with post-N usage statistics asserting no effect |
 | S-7 | Non-durable retrieval inputs are pinned by configuration identity | Assert every non-durable input is named by a recorded configuration or policy identity and hash |
-| S-8 | Presented freshness is evaluated as-of N and preserved in evidence | Fixture where freshness changed after N; assert the record preserves the as-of-N assessment, not today's |
+| S-8 | Returned freshness is evaluated as-of N and preserved in evidence | Fixture where freshness changed after N; assert the record preserves the as-of-N assessment, not today's; assert the evidence claims attachment, not presentation |
 | S-9 | Completion status is present, and incomplete is never reported as complete | Fixture per termination cause; assert status and reason recorded; assert no consumer treats an incomplete result as exhaustive |
 | S-10 | Every ranking signal records its declared algorithmic meaning | Assert each signal in the vocabulary carries a definition; assert none is undefined |
 | S-11 | No retrieval score is converted into an epistemic quantity | Assert no path maps a retrieval score to confidence, probability of truth, importance or causal influence |
@@ -265,6 +327,11 @@ Twenty rules.
 | S-18 | The eligible-but-not-returned set is computable | Assert `AS_OF(N)` eligibility minus the returned set is derivable from the record and the store |
 | S-19 | Environment identity is recorded | Assert policy, index/embedding and model identities are non-null on every record |
 | S-20 | `RecallPerformed` does not feed ranking | Assert no ranking input reads `RecallPerformed` records |
+| S-21 | Request and result content is recoverable, not merely hashed | Assert content is stored inline or via a content-addressed reference; resolve every reference and assert the target is retained and readable |
+| S-22 | Replay depends on no external mutable object | Assert every replay dependency is immutable or content-addressed; mutate an external source in a fixture and assert replay output is unchanged |
+| S-23 | The recall view does not advance during execution | Commit records mid-recall in a fixture; assert none appears in the result and no read observed them |
+| S-24 | Recall watermark and evidence-record commit identity are distinct and both preserved | Assert both fields exist and differ where the record committed later; assert no path treats the record's own `commit_sequence` as the recall watermark |
+| S-25 | `COMPLETE` never implies exhaustiveness | Assert no consumer derives optimality or exhaustiveness from a normal-completion status |
 
 ## Evidence and rationale
 
@@ -308,6 +375,21 @@ requirement. It was rejected only because environment identity is nearly free �
 snapshots — and without it the project cannot tell drift from defect, which ADR-0003's reporting obligations
 will eventually require. The recommendation is B plus a small amount of C, not a genuine dual system.
 
+**Rules 2a–2c draw the line the original blurred.** "Identities, not artefacts" is the right economy for the
+*environment* — an embedding table need not be snapshotted when its identity plus a deterministic build
+procedure can reconstruct it, and where it cannot, rule 15's `unsupported` status is the honest answer. It is
+the wrong economy for *content*: a hash of a result set proves which result set it was and lets nobody read
+it. Since rule 2 makes the record the sole source of historical truth, a record that cannot yield its own
+content is not evidence. S-22's fixture — mutate an external source, assert replay unchanged — is what stops
+recoverability being satisfied by a pointer into something that will drift.
+
+**Rule 3a exists because `AS_OF(N)` on individual reads is not the same as a snapshot.** A retriever that
+resolves each read against watermark N still produces an incoherent view if the underlying store advances
+between reads and some reads are served from a later state that happens to satisfy the filter. Binding the
+view once, before retrieval begins, makes the whole operation observe one consistent world. Rule 3b then
+prevents the opposite confusion: the evidence record necessarily commits *after* the recall it describes, and
+treating its own sequence as the watermark would silently include everything that landed during execution.
+
 ## Consequences
 
 **Easier:** answering what a past recall returned, forever, without any retrieval infrastructure; detecting
@@ -338,7 +420,16 @@ vocabulary.
 - **D-16 (personal scope)** — the request's namespace field is where scope isolation is enforced at the recall
   boundary.
 
-**Newly uncovered decision — recorded, not decided here: D-27 — v0 retrieval channel set.** Vision 5.6
+**Newly uncovered decisions — recorded, not decided here:**
+
+**D-28 — cognitive-cycle knowledge snapshot scope.** Rules 3a–3b fix the snapshot for a *single* recall.
+Whether an entire cognitive decision cycle must use one stable watermark, or whether separate recalls within a
+cycle may advance to newer ones, is unresolved. ADR-0010 rule 12 requires a decision to carry *a* watermark
+but does not forbid its constituent recalls using different ones, which would leave the decision's watermark
+ambiguous. Inside an evaluation epoch the question cannot arise, since ADR-0004 rule 9 freezes memory; outside
+one it can. Materially relevant to D-12 and D-13, and registered rather than settled here.
+
+**D-27 — v0 retrieval channel set.** Vision 5.6
 describes many activation routes: semantic, entity, temporal, causal, structural, procedural, outcome, risk and
 historical-utility. This ADR records a per-item channel and permits future ones, but does not decide which
 exist in v0. That is a scope decision affecting what recall can do and therefore what condition C is, and it

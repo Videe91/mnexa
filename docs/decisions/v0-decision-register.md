@@ -44,9 +44,14 @@ Six decisions settled: D-01, D-08, D-09, D-17, D-21, D-22 (ADR-0002 … ADR-0006
 
 **Ten decisions settled:** D-01, D-02, D-03, D-05, D-08, D-09, D-17, D-21, D-22, D-24 (ADR-0002 … ADR-0010).
 
-**Next blocker: D-10 — recall reproducibility.** ADR-0011 proposed 2026-09-10, awaiting review.
+**Eleven decisions settled:** D-01, D-02, D-03, D-05, D-08, D-09, D-10, D-17, D-21, D-22, D-24
+(ADR-0002 … ADR-0011).
 
-Chosen by specification impact plus upstream position, not register order:
+**Next blocker: D-27 — v0 retrieval channel set.** ADR-0012 proposed 2026-09-10, awaiting review. Surfaced
+ahead of D-13 because the Recall contract (element 13) cannot state what recall searches until channels are
+chosen, while D-13 consumes the returned-item contract regardless of which channels produced the items.
+
+Earlier blocking analysis, retained for reference:
 
 | Decision | Spec elements blocked | Upstream of | Notes |
 |---|---|---|---|
@@ -214,7 +219,8 @@ rule at specification level.
 
 **Tier:** D2 (D3 where it affects experimental validity)
 **Vision:** 5.3, 5.10; `.claude/rules/scientific-method.md`
-**Status:** ADR-0011 proposed 2026-09-10; awaiting owner review.
+**Status:** **SETTLED** — ADR-0011 accepted 2026-09-10 after three owner-directed amendments (content must be
+recoverable not merely identified; recall binds a fixed knowledge snapshot; returned is not presented).
 
 Whether recall must be deterministic given identical memory state and Context Frame. Nondeterministic
 recall makes controlled comparison noisier and makes a failed run non-reproducible.
@@ -481,7 +487,7 @@ have expanded its surfaced scope.
 
 **Tier:** D2
 **Vision:** 5.6, 5.7, 5.10
-**Status:** pending. **Discovered while drafting ADR-0011; not decided there.**
+**Status:** ADR-0012 proposed 2026-09-10; awaiting owner review. **Discovered while drafting ADR-0011.**
 
 Vision 5.6 describes many independent activation routes — semantic, entity, temporal, causal, structural,
 procedural, outcome, risk and historical-utility. ADR-0011 records a per-item retrieval channel and permits
@@ -493,6 +499,28 @@ declared algorithmic meanings.
 
 Not decided in ADR-0011 because that ADR's question was the *evidence* contract; settling which mechanisms
 produce the evidence would have expanded it from evidence to mechanism.
+
+### D-28 — Cognitive-cycle knowledge snapshot scope
+
+**Tier:** D2
+**Vision:** 5.4, 5.13, 5.19
+**Status:** pending. **Discovered while amending ADR-0011; not decided there.**
+
+ADR-0011 rules 3a–3b fix the knowledge snapshot for a **single** recall: the watermark binds before retrieval
+and does not move. Unresolved: must an entire cognitive decision cycle use one stable watermark, or may
+separate recall operations within the same cycle advance to newer ones?
+
+ADR-0010 rule 12 requires a decision to carry *a* watermark, but does not forbid its constituent recalls using
+different ones — which would leave the decision's watermark ambiguous, and would make "what was available to
+this decision" answerable only per-recall rather than per-decision.
+
+Inside an evaluation epoch the question cannot arise, since ADR-0004 rule 9 freezes memory. Outside one — during
+the experience and consolidation phases — it can.
+
+**Materially relevant to D-12 and D-13.** Does **not** block D-27: channel choice is unaffected by how many
+recalls a cycle performs or at which watermarks, since each recall binds its own N regardless.
+
+Not decided in ADR-0011 because that ADR's scope was a single recall operation's evidence contract.
 
 ---
 
