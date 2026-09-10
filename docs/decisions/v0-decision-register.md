@@ -47,8 +47,8 @@ Six decisions settled: D-01, D-08, D-09, D-17, D-21, D-22 (ADR-0002 … ADR-0006
 **Thirteen decisions settled:** D-01, D-02, D-03, D-05, D-08, D-09, D-10, D-17, D-21, D-22, D-24, D-27, D-28
 (ADR-0002 … ADR-0013).
 
-**Next blocker: D-13 (narrowed) — activation and context evidence.** Recommended for split; no ADR drafted,
-awaiting owner direction on the split before drafting. Credit attribution moves to **D-30**.
+**Next blocker: D-13 (narrowed) — activation and context evidence.** ADR-0014 proposed 2026-09-10, awaiting
+review. Split approved; credit attribution is **D-30** and remains unresolved.
 
 Earlier blocking analysis, retained for reference:
 
@@ -255,8 +255,8 @@ arrives.
 
 **Tier:** D3 (scientific)
 **Vision:** 3.12, 3.39, 5.36–5.41
-**Status:** **UNBLOCKED** — D-28 settled by ADR-0013. **Recommended for split** — see below. As narrowed, D-13
-covers activation and context evidence only; credit attribution moves to **D-30**.
+**Status:** ADR-0014 proposed 2026-09-10; awaiting owner review. **Split approved by owner 2026-09-10** — as
+narrowed, D-13 covers activation and context evidence only; credit attribution is **D-30**.
 
 **Split analysis (2026-09-10).** D-13 as registered contains two decisions of different kinds:
 
@@ -603,8 +603,30 @@ inferred from outcomes" at a scale v0 will not reach.
 Owns both prohibited inferences in the D-13 chain: `PRESENTED → CAUSED DECISION` and
 `DECISION → CAUSED OUTCOME`. Neither may be asserted without a standard this decision supplies.
 
-Depends on D-13 (needs the activation trace as input). Likely minimal or deferred in v0, with D-13 obliged to
-preserve whatever preconditions a later standard will require.
+Depends on D-13 (needs the activation trace as input). **Unblocked by ADR-0014** (proposed), which supplies
+that input: returned, selected, presented and suppressed-with-reason, plus exact presented representations.
+Likely minimal or deferred in v0. ADR-0014 forbids any `influence_score`, `causal_weight`, `credit` or `blame`
+field entering the historical trace except as explicitly attributed estimate content.
+
+### D-31 — Context measurement basis
+
+**Tier:** D2 (scientific / benchmark-adjacent)
+**Vision:** 5.14; `.claude/rules/scientific-method.md`
+**Status:** pending. **Discovered while drafting ADR-0014; not decided there.**
+
+ADR-0003 rule 3 requires conditions B and C to share one maximum injected-context budget, and J-4 requires
+token-counting the injected block. Neither says **how** size is measured when a provider does not expose exact
+tokenization.
+
+ADR-0014 rule 20 requires the basis to be declared and honestly labelled — an estimate is never presented as
+exact — but does not choose it. The candidates differ materially: provider-reported usage (exact but only
+available post-hoc, and covering the whole request rather than the injected portion), a pinned local tokenizer
+(pre-computable and attributable per segment, but approximate against the provider), or character/byte counts
+(exact and provider-independent, but a poor proxy for model cost).
+
+The choice determines whether ADR-0003's B/C parity is verifiable at all, and therefore whether the claim
+boundary in ADR-0003 rule 9 can be checked. Not decided in ADR-0014 because that ADR's question was what the
+trace records, not which accounting standard the benchmark adopts.
 
 ---
 

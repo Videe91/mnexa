@@ -2,8 +2,8 @@
 
 **Phase:** MNEXA v0 — specification phase, decision audit stage
 
-**Current milestone:** ADR-0002 … ADR-0013 accepted. Specification remains **blocked** on **D-13**
-(activation and context evidence), which is recommended for a split before drafting.
+**Current milestone:** ADR-0002 … ADR-0013 accepted. `ADR-0014` proposes the activation and context trace.
+Specification remains **blocked** at that D3 approval boundary.
 
 **Branch:** `spec/mnexa-v0`
 
@@ -14,17 +14,16 @@ until the durable decisions it depends on are accepted.
 
 **Active implementation plan:** None.
 
-**Last completed artifact:** `ADR-0013` — **accepted** 2026-09-10 after three owner-directed amendments. The
-register `docs/decisions/v0-decision-register.md` holds the inventory of D2/D3 decisions (D-01 … D-26) plus 5
+**Last completed artifact:** `ADR-0014` — **proposed** 2026-09-10. The register `docs/decisions/v0-decision-register.md` holds the inventory of D2/D3 decisions (D-01 … D-26) plus 5
 recorded vision tensions, one of which (T-1) ADR-0007 resolved.
 
 **Verification:** Documentation-only change. Verified by inspection: ADR-0002, ADR-0003 and ADR-0004 follow
-the template in `docs/decisions/README.md`; all 190 invariants (14 I-, 10 J-, 17 K-, 10 L-, 21 M-, 11 N-, 16 P-,
-15 Q-, 24 R-, 25 S-, 14 T-, 13 U-) carry stated mechanical checks; no placeholder text remains; register entries carry tier classification and vision
+the template in `docs/decisions/README.md`; all 210 invariants (14 I-, 10 J-, 17 K-, 10 L-, 21 M-, 11 N-, 16 P-,
+15 Q-, 24 R-, 25 S-, 14 T-, 13 U-, 20 V-) carry stated mechanical checks; no placeholder text remains; register entries carry tier classification and vision
 references; no production code, tests, specification, benchmark harness or plan were created.
 
-**Open D2/D3 decisions:** 30 recorded in `docs/decisions/v0-decision-register.md` (D-01 … D-30); D-01, D-02,
-D-03, D-05, D-08, D-09, D-10, D-17, D-21, D-22, D-24, D-27 and D-28 are settled, 17 remain open.
+**Open D2/D3 decisions:** 31 recorded in `docs/decisions/v0-decision-register.md` (D-01 … D-31); D-01, D-02,
+D-03, D-05, D-08, D-09, D-10, D-17, D-21, D-22, D-24, D-27 and D-28 are settled, 18 remain open.
 
 - `ADR-0002` — experience/interpretation boundary and historical immutability — **accepted**. Settles D-01;
   partially settles D-06; pre-shapes D-07 and D-13.
@@ -59,8 +58,12 @@ D-03, D-05, D-08, D-09, D-10, D-17, D-21, D-22, D-24, D-27 and D-28 are settled,
 - `ADR-0013` — cognitive-cycle knowledge snapshot scope — **accepted**. Settles D-28. One watermark per cycle
   governing persistent intelligence only; arriving commits do not invalidate a cycle; authorization is not
   frozen. `CognitiveCycle` is a correlation identity, **not** a fourth canonical object.
-- **D-13 is the next blocker, and is recommended for a split**: activation/context evidence (D-13, narrowed)
-  versus credit attribution (**D-30**, new). Awaiting owner direction on the split before drafting.
+- `ADR-0014` — activation and context trace (D-13, narrowed) — **proposed, D3, awaiting owner review**. One
+  atomic `ContextAssembled` record; `PRESENTED` replaces "activated" as the normative term; `MemoryActivated`
+  becomes a projection. Carries two proposed refinements to ADR-0007 and ADR-0008, surfaced for approval.
+  **Unblocks D-12 and D-30.**
+- D-31 (context measurement basis) was discovered while drafting ADR-0014 and recorded rather than decided.
+- **D-30** (credit attribution) remains unresolved and is not to be drafted yet.
 - D-29 (authorization and revocation temporal semantics) was discovered while amending ADR-0013; ADR-0013
   rule 8 states the minimum invariant in force, the mechanism is registered not designed.
 - Tension **T-3** reassigned from D-13 to D-30.
@@ -70,13 +73,12 @@ D-03, D-05, D-08, D-09, D-10, D-17, D-21, D-22, D-24, D-27 and D-28 are settled,
   for a correct v0 spec.
 - Remaining after D-05: D-04, D-06, D-07, D-10 … D-16, D-18 … D-20, D-23, D-25, D-26.
 
-**Known blockers:** D-13 requires an accepted ADR before the activation trace and observability elements may
-be written. The split recommendation needs owner direction first. Per `.claude/rules/decisions.md`, work does
+**Known blockers:** `ADR-0014` requires explicit owner approval, including its two proposed refinements to
+accepted ADRs. Per `.claude/rules/decisions.md`, work does
 not proceed past an unapproved D3 boundary. The v0 specification additionally awaits the remaining
 domain-model decisions.
 
 **Experiments in progress:** None. No benchmark contract exists.
 
-**Next approved action:** Owner confirms the D-13 / D-30 split, then `ADR-0014 — Activation and Context
-Trace` is drafted for the narrowed D-13. Do not write MNEXA production code, the benchmark
+**Next approved action:** Owner reviews `ADR-0014`. Do not write MNEXA production code, the benchmark
 harness, the v0 specification, or an implementation plan.
