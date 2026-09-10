@@ -40,8 +40,10 @@ the highest-risk items in this register.
 
 Six decisions settled: D-01, D-08, D-09, D-17, D-21, D-22 (ADR-0002 … ADR-0006).
 
-**Next blocker: D-02 — canonical object set for v0.** ADR-0007 proposed 2026-09-10, awaiting review.
-D-03 is no longer coupled to it: criterion β separated plane assignment from construction authority.
+**Next blocker: D-24 — historical-to-historical reference semantics.** ADR-0008 proposed 2026-09-10,
+awaiting review. Surfaced ahead of D-03 because it blocks D-12 and interacts with D-05.
+
+D-03 (episode construction authority) is unblocked and narrowed, awaiting its turn.
 
 **D-23 is deferred.** It is not required to write a correct v0 specification: ADR-0006 treats all
 supersessions uniformly, which is complete and safe, and classification would only refine signal quality.
@@ -88,7 +90,9 @@ mechanically. Every other object definition depends on which side of this line e
 
 **Tier:** D2
 **Vision:** 2.2–2.9, 3.2, 10.6
-**Status:** ADR-0007 proposed 2026-09-10; awaiting owner review.
+**Status:** **SETTLED** — ADR-0007 accepted 2026-09-10 after two owner-directed amendments (historical
+references to Entity permitted when version-pinned with usage semantics; projections must be capturable as
+historical evidence, and the event-type list is provisional not closed).
 
 The vision names ~16 intelligence-graph node types across all phases. v0 needs the minimum subset that
 closes the loop. Which objects exist in v0 is durable because later phases extend rather than replace them.
@@ -122,9 +126,9 @@ whether entity resolution is reversible; whether identity may be assigned by a m
 
 **Tier:** D2
 **Vision:** 2.6, 6.4, 6.6
-**Status:** pending. Constrained by ADR-0005's commit ordering (a total order for interpretive versions, not
-the occurred-at/recorded-at question) and now interacting with **D-24**, which must settle whether historical
-records may cite one another and under what ordering constraint.
+**Status:** pending. Constrained by ADR-0005's commit ordering for interpretive versions and by ADR-0008
+(proposed), which makes commit sequence the historical plane's ordering primitive. The occurred-at versus
+recorded-at question remains fully open and is D-05's core.
 
 Whether v0 is bitemporal (occurred-at vs recorded-at), what ordering guarantee the ledger provides, and
 how "what was knowable at time T" is reconstructed. This is also a benchmark-integrity control: without a
@@ -203,8 +207,9 @@ Where a confidence value comes from at t=0, given that the vision distrusts mode
 **Vision:** 2.7, 3.6, 6.19–6.23, 10.18
 **Status:** pending; **constrained** by ADR-0007. Decision, Prediction, Action and Outcome are historical
 event types, not canonical objects, so linkage must be expressed as references between records rather than
-as fields on a mutable object. **Now blocked on D-24**, which decides whether historical→historical
-references are permitted at all.
+as fields on a mutable object. **Unblocked by ADR-0008** (proposed): `outcome_for`, `execution_of` and
+`evaluates_prediction` make the linkage expressible, leaving D-12 to decide the content and completeness
+contract rather than whether the edges may exist.
 
 What must be recorded at decision time so that prediction error is computable later without hindsight
 contamination; how an outcome binds to the decision that produced it; what happens when an outcome never
@@ -265,7 +270,8 @@ enter memory. Must be locked before any experience is captured, not at benchmark
 
 **Tier:** D2
 **Vision:** 3.4, 9.7
-**Status:** pending
+**Status:** pending. **Shaped** by ADR-0008 (proposed): commit becomes a two-phase admission for records
+carrying structural edges, since preexistence must be verified against every target before commit.
 
 What happens on partial write, duplicate submission, and capture failure; whether a lost experience is
 allowed to fail silently. Idempotency is part of the durable contract if the capture port is retryable.
@@ -373,7 +379,11 @@ produced D-21 and D-22.
 
 **Tier:** D2
 **Vision:** 2.7, 10.18, 3.6
-**Status:** pending. **Discovered while drafting ADR-0007; not decided there.**
+**Status:** ADR-0008 proposed 2026-09-10; awaiting owner review. **Discovered while drafting ADR-0007.**
+
+**Note:** the gap predates ADR-0007. ADR-0002 rule 3 — correction by appending a superseding record — already
+required a historical→historical reference, and was accepted without the mechanism existing. ADR-0007 made it
+urgent rather than creating it.
 
 ADR-0002 I-5 governs historical→interpretive references. ADR-0005 governs interpretive→interpretive. Nothing
 governs a historical record citing another historical record.

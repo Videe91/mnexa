@@ -1,6 +1,6 @@
 ---
 id: ADR-0007
-status: proposed
+status: accepted
 date: 2026-09-10
 scope: constitutional
 vision_refs:
@@ -18,6 +18,21 @@ supersedes: []
 
 Covers register entry **D-02**. Deliberately does **not** decide D-03 (episode construction authority);
 see *Episode boundary* below for the separability analysis.
+
+**Approval:** accepted by owner 2026-09-10, following two owner-directed amendments made while the ADR was
+still `proposed`. The record below is as amended and approved.
+
+**Amendment history (all pre-acceptance, owner-directed):**
+
+1. **The prohibition on historical references to Entity was too absolute.** The original N-3 forbade any
+   historical→Entity reference. That destroyed the ability to record which identity resolution the runtime
+   actually used at decision time, which is itself historical fact. Replaced with the epistemic distinction:
+   such references are permitted, version-pinned, with usage semantics only. — Entity section, N-3, N-9, N-10.
+2. **Ephemeral projection does not mean disposable evidence.** The original left projections without a stated
+   capture obligation, and described the v0 event-type list as closed. Projections that influenced cognition
+   or are needed to reproduce a decision must be *capturable* as historical evidence without gaining
+   canonical identity; and the event-type list is provisional pending D-10, D-12 and D-13. — rule on
+   capturable projections, N-7, N-11.
 
 ## Decision question
 
@@ -178,7 +193,10 @@ kinds — decision, prediction, action, outcome — are **types of this record**
 **Impossible without it.** Everything. Experience capture, provenance grounding, and the entire historical
 plane.
 
-**v0 event types.** A closed list for v0, extensible later without architectural change:
+**v0 event types.** A **provisional** list, extensible without architectural change. It is explicitly **not
+declared closed**: D-10 (recall reproducibility), D-12 (decision/prediction/outcome linkage) and D-13
+(activation trace) may each require additional types, and adding one changes only the enum validated by N-2,
+never the canonical object count (N-8).
 
 `ObservationRecorded` · `DecisionMade` · `PredictionMade` · `ActionExecuted` · `OutcomeObserved` ·
 `CorrectionReceived` · `ContextAssembled` · `MemoryActivated` · `ConsolidationProduced` ·
@@ -201,10 +219,27 @@ resolution judgement that can be wrong and must be revisable. Raw identifiers ob
 `session_id`, a service name string, a call ID — are historical evidence inside ExperienceRecord payloads.
 They are not Entities, and their presence does not make MNEXA's identity abstraction historical.
 
-**Consequence: identity binding is interpretive.** An ExperienceRecord does **not** reference Entities. The
-claim "identifier X in record R denotes Entity E" is an Interpretation of kind `identity_binding`. This keeps
-ADR-0002 rule 6 intact — history never asserts an interpretation is correct — and it means a wrong resolution
-is corrected by superseding a binding rather than by touching a record.
+**Consequence: identity binding is interpretive, but usage of a binding is historical.** The claim
+"identifier X in record R denotes Entity E" is an Interpretation of kind `identity_binding` — a judgement that
+may be wrong and must be revisable.
+
+A historical record may nonetheless **reference a version-pinned Entity or identity-related Interpretation
+version**, solely to record which identity resolution the runtime actually used at that time. This must be
+expressible:
+
+> "Decision D was made while Entity E17 version 4 was the identity resolution used by the runtime."
+
+That is historical fact. It does **not** assert that E17 v4 was objectively the correct identity. Under
+ADR-0002 rules 5–6 this is an ordinary version-pinned usage edge, identical in kind to `MemoryActivated`.
+
+The constraints are therefore:
+
+- never reference a mutable Entity or Interpretation **head** from history — version-pinned only;
+- edge semantics express **usage and context**, never truth;
+- raw observed identifiers remain structurally distinguishable from MNEXA identity references within a
+  record, so the two are never conflated on read;
+- the presence of an Entity reference in history **never** promotes the identity interpretation to grounded
+  fact — its epistemic status is unchanged by being used.
 
 **Why durable identity.** Its stable identity *is* its purpose (2.4: names change, identity persists).
 
@@ -283,14 +318,28 @@ criterion β makes the plane independent of the producer.
 | **Action** | Event type `ActionExecuted` | Pure occurrence |
 | **Outcome** | Event type `OutcomeObserved` | Pure occurrence. Its linkage to a decision is D-12's contract, not a new object |
 | **Belief** | Interpretation kind `belief` | Versioned claim; the generic primitive covers it exactly |
-| **ContextFrame** | **Projection**, captured | Assembled per decision from goal, entities and state. Needs no durable identity, but the *exact frame used* must be recoverable for reproducibility (ADR-0003 J-1, D-10), so it is captured as `ContextAssembled` record content |
+| **ContextFrame** | **Projection**, capturable | Assembled per decision from goal, entities and state. No durable identity, but the exact frame used must be capturable as historical evidence for reproducibility (ADR-0003 J-1). `ContextAssembled` is the presumed carrier; the trace contract is D-10's to decide |
 | **MemoryActivation** | Event type `MemoryActivated` | The paradigm case of ADR-0002 rules 5–6: a historical fact citing an interpretive version, pinned, with usage semantics. Distinct from the content of the version activated. Satisfies 5.40 cognitive provenance |
-| **Recall result** | **Projection** | Captured via the activation records and `ContextAssembled`; no independent identity |
+| **Recall result** | **Projection**, capturable | No independent identity, but enough immutable historical evidence must be recordable to determine what was retrieved, activated or suppressed where the recall/attribution contract requires it. Whether that is `RecallPerformed`, richer `MemoryActivated` records, `ContextAssembled` payload or another form is **D-10/D-13's decision, not settled here** |
 | **Consolidation proposal** | Interpretation version **+** `ConsolidationProduced` record | ADR-0002 rules 8–10 already determine this: the production is historical and attributed; the proposal is an Interpretation whose epistemic status is explicit. A model producing a candidate does not make it grounded |
-| **Freshness / staleness assessment** | **Projection** | Settled by ADR-0006 rule 3 — derived, never stored on a version |
+| **Freshness / staleness assessment** | **Projection**, capturable | Derived state, never stored on a version (ADR-0006 rule 3). The assessment *actually presented to cognition* may be recorded as part of historical activation or context evidence; which carrier is D-13's decision |
 | **Revalidation attempt** | Event type `RevalidationAttempted` | Settled by ADR-0006 M-20 |
 
 Six of these eleven were already forced by accepted decisions rather than chosen here.
+
+### Rule: ephemeral projection does not mean disposable evidence
+
+A projection that **materially influenced cognition**, or that is **required to reproduce or attribute a
+decision**, must be capable of being captured as immutable historical evidence.
+
+Capture does not confer canonical object identity. The projection remains a projection; only its
+*instantiated value or trace* becomes historical. A ContextFrame is still assembled and discarded; what
+persists is the record of the frame that was used.
+
+This ADR fixes the obligation and deliberately leaves the mechanism open. Whether the trace is carried by a
+`RecallPerformed` event, by richer `MemoryActivated` records, by `ContextAssembled` payload, or by some other
+representation belongs to **D-10** (recall reproducibility) and **D-13** (activation trace and attribution),
+and is not settled here.
 
 ### Invariants and how each is checked
 
@@ -298,12 +347,15 @@ Six of these eleven were already forced by accepted decisions rather than chosen
 |---|---|---|
 | N-1 | Exactly three canonical object types exist in v0 | Assert the schema registry contains ExperienceRecord, Entity, Interpretation and no other canonical type |
 | N-2 | Every ExperienceRecord carries a type from the closed v0 event-type list | Assert `type` ∈ declared enum; reject commit otherwise |
-| N-3 | No ExperienceRecord references an Entity directly | Assert zero edges from the historical plane to Entity objects; identity claims appear only as `identity_binding` interpretations |
+| N-3 | Historical references to Entity or Interpretation are version-pinned, never to a head | Assert every such reference carries a version identity; assert zero references resolving through a mutable head (ADR-0002 I-5) |
 | N-4 | Every Interpretation carries a kind from the declared kind list | Assert `kind` ∈ declared enum |
 | N-5 | Episode-kind interpretations reference ≥1 ExperienceRecord | Assert each `episode` version's provenance includes at least one historical record |
 | N-6 | No canonical object is mutable in place | Assert ExperienceRecord immutability (ADR-0002 I-1) and that Entity/Interpretation change only by new versions (ADR-0005 L-4, L-9) |
-| N-7 | ContextFrame and recall results have no durable identity | Assert no persisted object type for either; assert the used frame is recoverable from `ContextAssembled` record content |
+| N-7 | ContextFrame, recall results and freshness assessments have no canonical object identity | Assert no canonical object type is registered for any of them |
 | N-8 | Adding an event type does not alter canonical object count | Assert N-1 holds across event-type extension; extension changes only the enum in N-2 |
+| N-9 | Raw observed identifiers and MNEXA identity references are structurally distinguishable in a record | Assert they occupy distinct, separately typed fields; assert no read path conflates them |
+| N-10 | Using an interpretation from history does not change its epistemic status | Assert the referenced version's grounded/ungrounded status is unchanged before and after being referenced |
+| N-11 | Any projection that influenced cognition or is required to reproduce a decision is capable of historical capture | Assert the historical plane admits a record carrying it — i.e. no such projection is structurally uncapturable. The specific record type is D-10/D-12/D-13's decision, not asserted here |
 
 ## Evidence and rationale
 
