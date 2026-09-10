@@ -20,7 +20,11 @@ After ADR-0002 is accepted, experimental validity is de-risked **before** the do
 Order: ADR-0002 -> D-08/D-09/D-17 -> remaining domain-model decisions.
 
 Recommended decomposition for D-08/D-09/D-17: **two ADRs** (resource parity; hidden-evaluation isolation).
-Rationale recorded under those entries.
+Rationale recorded under those entries. Both have since been drafted: ADR-0003 (accepted), ADR-0004
+(proposed).
+
+Owner sequencing addendum (2026-09-10): after D-17 resolves, **D-21 surfaces next**, before the remaining
+domain-model decisions. D-21 is foundational provenance semantics and must not be silently decided.
 
 ---
 
@@ -133,7 +137,7 @@ single-agent v0 without violating the law — and what must remain a proposal?
 
 **Tier:** D3 (scientific / benchmark methodology)
 **Vision:** 3.42, 10.41; `.claude/rules/scientific-method.md`
-**Status:** ADR-0003 proposed (with D-09); awaiting owner review.
+**Status:** **SETTLED** — ADR-0003 accepted 2026-09-10 after four owner-directed precision amendments.
 
 If consolidation is performed by a model stronger than the frozen model under test, condition C's gain may
 come from the consolidation model's intelligence rather than from accumulated experience. The thesis claim
@@ -144,7 +148,7 @@ addresses the confound this creates for Grand Proof 1 (10.41).
 
 **Tier:** D3 (scientific / benchmark methodology)
 **Vision:** 10.41; `.claude/rules/scientific-method.md`
-**Status:** ADR-0003 proposed (with D-08); awaiting owner review.
+**Status:** **SETTLED** — ADR-0003 accepted 2026-09-10 after four owner-directed precision amendments.
 
 If MNEXA's recall path may itself call a model at decision time, condition C consumes more inference
 compute than A and B, and any improvement is confounded with extra compute. Requires an explicit parity
@@ -220,8 +224,7 @@ How v0 structurally guarantees single-agent scope so that later L2+ scopes exten
 
 **Tier:** D3 (scientific)
 **Vision:** 10.59; `.claude/rules/scientific-method.md`
-**Status:** pending; surfaces after ADR-0003 resolves. Own ADR (hidden-evaluation isolation): different
-threat model, different enforcement point, independently revisable.
+**Status:** ADR-0004 proposed; awaiting owner review.
 
 What MNEXA is permitted to ingest, and the structural guarantee that hidden evaluation instances cannot
 enter memory. Must be locked before any experience is captured, not at benchmark time.
@@ -274,6 +277,18 @@ patterns, and something must decide when to re-derive.
 
 Not decided in ADR-0002 because the owner amendment addressed grounding, not edge mutability, and deciding
 it silently would have expanded the approved decision space.
+
+**Question preserved verbatim (owner, 2026-09-10):**
+
+> Should interpretive→interpretive derivation/provenance edges reference immutable source versions rather
+> than mutable object heads?
+
+**Owner's stated architectural expectation, recorded as a *proposed* position and explicitly NOT accepted:**
+provenance/derivation edges should be version-pinned, while mutable heads may exist for discovering the
+current interpretation. This is to be treated as one candidate option when the ADR is drafted, argued
+against genuine alternatives, and not presented as settled.
+
+**Sequencing:** surfaces immediately after D-17 resolves, before the remaining domain-model decisions.
 
 ---
 

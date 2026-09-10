@@ -1,6 +1,6 @@
 ---
 id: ADR-0003
-status: proposed
+status: accepted
 date: 2026-09-10
 scope: scientific
 vision_refs:
@@ -17,6 +17,24 @@ supersedes: []
 
 Covers register entries **D-08** (consolidation model identity and parity) and **D-09** (inference-time
 compute parity).
+
+**Approval:** accepted by owner 2026-09-10, following four owner-directed precision amendments made while
+the ADR was still `proposed`. The record below is as amended and approved.
+
+**Amendment history (all pre-acceptance, owner-directed):**
+
+1. **"Hard parity" replaced by controlled reasoning-seat parity.** The original proposal said decision-time
+   model compute was under "hard parity across A/B/C". That claim was wrong as written: B and C necessarily
+   receive memory context A does not, so literal token-level parity is unachievable. What is controlled is
+   the *reasoning seat*, enumerated in rule 1. Memory-contributed input tokens are metered and reported, not
+   equalized. — rules 1–3, invariants J-1/J-4.
+2. **Claim-boundary rule added.** The original proposal controlled the comparison but never stated what each
+   outcome licenses as a conclusion. — rule 9, invariant J-9.
+3. **Consolidation model tightened from ceiling to identity.** The original made "same frozen model
+   everywhere" a *recommended* setting under a capability ceiling. It is now *required* for the primary
+   proof, with heterogeneous consolidation permitted only as a separately labelled variant. — rule 5,
+   invariants J-6/J-10.
+4. **Lifetime versus per-task wording disambiguated.** — §Lifetime versus per-task.
 
 ## Decision question
 
@@ -66,19 +84,31 @@ So the axes must be separated rather than pooled. The distinctions below are the
 
 | # | Axis | When it runs | Is it the treatment? | Required handling |
 |---|---|---|---|---|
-| 1 | **Decision-time model compute** | during an evaluated task | No | **Hard parity** across A/B/C |
-| 2 | **Retrieval/storage compute** (non-model: indexing, ranking, graph traversal, I/O) | during an evaluated task | No | Metered and reported; **not** equalized |
-| 3 | **Offline consolidation compute** | between tasks | **Yes — this is the mechanism** | **Never equalized**; declared, metered, reported |
-| 4 | **Model capability / version** | every stage | No | Identical in the reasoning seat; **capability ceiling** elsewhere |
-| 5 | **Lifetime vs per-task compute** | — | Lifetime: yes. Per-task: no | Per-task equalized; lifetime reported, never equalized |
+| 1 | **Decision-time reasoning-seat resources** (model, allowances, tools, decoding, stopping) | during an evaluated task | No | **Controlled parity** across A/B/C — identical seat definition |
+| 2 | **Non-model retrieval/storage compute** (indexing, ranking, graph traversal, I/O) | during an evaluated task | No | Metered and reported; **not** equalized |
+| 3 | **Injected-memory input tokens** | during an evaluated task | Partly — memory access *is* the experimental variable | **Not** equalized between A and B/C; B and C share one maximum budget; always metered |
+| 4 | **Offline consolidation compute** | between tasks | **Yes — this is the mechanism** | **Never equalized**; declared, metered, reported |
+| 5 | **Model identity / version** | every stage | No | Identical exact model in the reasoning seat *and* in model-based consolidation, for the primary proof |
+
+### Lifetime versus per-task
+
+Stated without ambiguity:
+
+- **Decision-time / per-task reasoning resources are controlled** — the reasoning seat is identical across
+  conditions and its allowances are equal.
+- **Lifetime / offline MNEXA resources are not equalized away** — consolidation compute is the mechanism
+  under test, and reducing it to the no-memory condition's level would remove the treatment.
+- **Lifetime / offline resource usage is fully metered and reported** per condition.
+- **Amortized cost can be calculated across tasks** from those figures, so the claim can be stated as
+  performance at a given offline cost per experience.
 
 Axis 2 is where the loophole lives. A "retrieval" step that calls a model to rerank candidates is not
 retrieval compute — it is decision-time model compute wearing retrieval's clothes. The boundary must be
 drawn by *whether a model is invoked*, not by which subsystem the code lives in.
 
-Axis 5 is the distinction most likely to be got wrong in reporting. C legitimately consumes far more
-**lifetime** compute than A. That is the honest shape of the claim — amortized investment — and the claim
-must be *scoped* to it ("MNEXA achieves X at Y offline cost per Z experiences"), not hidden by it.
+Axis 3 is the distinction that makes literal compute parity impossible. Memory access is the experimental
+variable; requiring A, B and C to receive equal input tokens would nullify the treatment exactly as
+equalizing offline compute would. What is controlled is the *seat*, not the physical token count.
 
 ### The context-budget problem
 
@@ -110,9 +140,9 @@ Reversibility: n/a — the results produced under it are uninformative.
 
 ### Option B — Staged parity by axis
 
-Hard parity on decision-time model compute and reasoning-seat model capability. Capability ceiling on any
-model touching the memory-construction path. Offline and lifetime compute declared, metered and reported
-but never equalized. Injected-context budget equalized between B and C.
+Controlled parity of the decision-time reasoning seat. Model-identity equality on the memory-construction
+path for the primary proof. Offline and lifetime compute declared, metered and reported but never
+equalized. Injected-memory budget equalized between B and C but not against A.
 
 Benefits: controls each axis according to whether it is treatment or confound. Directly forecloses all four
 failure modes listed in Context. Produces a claim whose scope is explicit. Every rule is mechanically
@@ -125,8 +155,8 @@ be frozen and committed before the first evaluation run.
 Failure mode: a model invocation that bypasses the metered client would silently break parity. J-5 exists
 specifically to detect this by cross-checking against provider-reported usage.
 
-Reversibility: high. Budgets and ceilings are configuration; changing them after results exist is itself a
-D3 change and preserves earlier results under the earlier contract version.
+Reversibility: high. Budgets and seat definitions are configuration; changing them after results exist is
+itself a D3 change and preserves earlier results under the earlier contract version.
 
 ### Option C — Declare and report only
 
@@ -147,28 +177,47 @@ Reversibility: high, but the results produced under it are weak evidence.
 
 Eight rules.
 
-### Hard parity (decision time)
+### Controlled reasoning-seat parity (decision time)
 
-1. **Identical reasoning seat.** The model identity, version, and all sampling/reasoning parameters in the
-   reasoning seat are byte-identical across A, B and C. No condition may use a different model, a different
-   version, or different thinking settings.
-2. **Equal per-task decision-time budget.** Each evaluated task receives the same budget of model calls and
-   the same budget of generated tokens — including tokens the provider does not return in the visible
-   response, such as hidden reasoning tokens — in every condition.
-3. **Equal injected-context budget for memory conditions.** B and C receive the same token allowance for
-   injected memory content. A injects none. C's advantage must come from *what* it selects within that
-   allowance, not from being allowed more of it.
-4. **Every model call counts, wherever it lives.** Any model invocation on the decision path — including
-   one inside recall, ranking, reranking, query construction, or context assembly — counts against rules 1
-   and 2. Subsystem boundaries do not create exemptions.
+1. **Identical reasoning seat.** For the primary v0 comparison, A, B and C use the same:
+   - reasoning model / provider / version, or a pinned snapshot where the provider offers one;
+   - model-call allowance;
+   - generation / output-token allowance;
+   - tool permissions;
+   - decoding configuration;
+   - task-visible information other than the deliberately varied memory condition;
+   - stopping policy.
 
-### Capability ceiling (memory construction)
+   This is *controlled reasoning-seat parity*, not a claim of identical physical inference cost. Literal
+   token-level or FLOP-level parity across A/B/C is neither achievable nor desirable, because memory access
+   is the variable under test.
 
-5. **No model on the memory-construction path may exceed the frozen model under test.** Consolidation,
-   extraction, episode construction, and any other stage that shapes what ends up in memory are restricted
-   to a declared allowlist that does not contain a model more capable than the model being evaluated. The
-   recommended v0 setting is the strictest one: *the same frozen model everywhere*.
-6. **Baselines get the same construction budget in kind.** Whatever preparation condition B is permitted
+2. **Generation allowances are metered completely.** The generation-token allowance counts tokens the
+   provider does not return in the visible response, including hidden reasoning tokens, wherever the
+   provider reports them.
+
+3. **Injected-memory tokens: metered, not equalized against A.** Input tokens contributed by the memory
+   condition are **not** required to be equal between A and B/C — that difference is the experiment.
+   They must be explicitly metered and reported per condition. **B and C must receive the same maximum
+   injected-memory context budget**, so C cannot win merely by injecting more historical material.
+
+4. **Every model invocation counts, wherever it lives.** Any model invocation used for query expansion,
+   context construction, reranking, retrieval interpretation, reflection, or similar work counts as
+   model/reasoning compute against rules 1–2. It cannot be hidden under "retrieval". Subsystem boundaries
+   create no exemptions.
+
+### Model identity on the memory-construction path
+
+5. **The primary proof requires the same exact model.** Any model-based consolidation contributing to the
+   primary v0 result must use the same model family and the same exact model/version as the reasoning seat.
+   A stronger or external consolidation model must **not** participate in the primary v0 result. A
+   heterogeneous or stronger consolidation model may be tested later as a separate experimental variant,
+   clearly labelled as such; its result cannot be substituted for the strict primary proof.
+
+   This is what keeps the first claim clean: *the model weights stayed fixed while useful intelligence
+   accumulated externally through experience.*
+
+6. **Baselines get comparable preparation in kind.** Whatever preparation condition B is permitted
    (embedding, chunking, indexing) is declared alongside C's, so C is not compared against a deliberately
    underbuilt retrieval baseline.
 
@@ -176,23 +225,44 @@ Eight rules.
 
 7. **Offline and lifetime compute are metered and reported, not equalized.** Consolidation compute, total
    experiences ingested, and cumulative model calls across the condition's lifetime are recorded per
-   condition and published with the result. The thesis claim is scoped to them.
+   condition and published with the result, so amortized per-task cost is computable.
+
 8. **Parity configuration is frozen before execution.** The full parity configuration is committed before
    the first evaluation run and referenced by content hash from the experiment record. Changing it after
    observing results is a D3 change that preserves the earlier result under the earlier contract version.
+
+### Claim boundaries
+
+9. **What each outcome licenses.**
+
+   - **C > A** demonstrates that the experienced MNEXA-equipped system provides an end-to-end advantage
+     over the same reasoning model without persistent memory.
+   - **C > B**, under equal injected-memory allowance and the decision-time reasoning controls above, is
+     **required** before claiming that MNEXA's organization, consolidation and recall provide an advantage
+     over conventional retrieval/RAG.
+   - **C > A but C ≈ B** licenses the conclusion that *persistent external memory helped*. It does **not**
+     license any claim that MNEXA's memory architecture is superior to conventional retrieval.
+   - Where **C > B** holds, the gain may include the benefit of MNEXA's offline consolidation compute,
+     because consolidation is intentionally part of the mechanism. That compute must therefore be measured
+     and reported rather than hidden.
+
+   Later ablations may isolate how much of the gain comes from consolidation, recall policy, memory
+   structure and so on. This ADR does not define those ablations.
 
 ### Invariants and how each is checked
 
 | ID | Invariant | How checked |
 |---|---|---|
-| J-1 | Reasoning-seat model identity, version and parameters are identical across conditions | Hash the reasoning-seat config per condition; assert all hashes equal |
-| J-2 | Per-task model-call and generated-token budgets are equal across conditions and not exceeded | Meter per task; assert declared budgets equal and every actual ≤ budget |
-| J-3 | Hidden/reasoning tokens are counted, not just visible output | Record provider usage fields per call; assert reasoning-token field present and non-null where the provider reports it |
-| J-4 | Injected-context tokens for B and C stay within one shared budget | Token-count the injected block; assert `budget_B == budget_C` and each actual ≤ budget |
-| J-5 | No model call on the decision path escapes metering | Route all invocations through one instrumented client; assert metered call count equals provider-reported call count per task |
-| J-6 | No model above the declared ceiling touches the memory-construction path | Assert every model identity recorded in construction-path provenance ∈ declared allowlist |
-| J-7 | Offline and lifetime compute are recorded per condition | Assert the experiment record carries non-null totals for each condition |
+| J-1 | The controlled reasoning seat is identical across conditions across all seven dimensions in rule 1 | Hash the full seat descriptor per condition; assert all hashes equal |
+| J-2 | Per-task model-call and generation-token allowances are equal across conditions and not exceeded | Meter per task; assert declared allowances equal and every actual ≤ allowance |
+| J-3 | Hidden/reasoning tokens are counted, not just visible output | Record provider usage fields per call; assert the reasoning-token field is present and non-null where the provider reports it |
+| J-4 | Injected-memory tokens are metered per condition, and B and C share one maximum budget | Token-count the injected block per task; assert `budget_B == budget_C`, each actual ≤ budget, and A's injected count is zero |
+| J-5 | No model invocation on the decision path escapes metering | Route all invocations through one instrumented client; assert metered call count equals provider-reported call count per task |
+| J-6 | For the primary proof, every model on the memory-construction path is the exact reasoning-seat model/version | Assert every model identity in construction-path provenance equals the reasoning-seat identity exactly |
+| J-7 | Offline and lifetime compute are recorded per condition and amortized cost is computable | Assert the experiment record carries non-null offline totals and experience counts for each condition |
 | J-8 | Parity configuration was frozen before the first evaluation run | Assert config content hash committed at a timestamp earlier than the first run's start |
+| J-9 | No claim of advantage over conventional retrieval is published without a recorded C > B result under these controls | Assert any such claim in an experiment record cites a run where C > B held under rule 9's conditions |
+| J-10 | Heterogeneous-consolidation runs are labelled variants and excluded from primary-proof aggregation | Assert every run whose construction-path model ≠ reasoning-seat model carries a variant label and is absent from primary aggregation |
 
 J-6 is enforceable only because ADR-0002 rules 8–9 require model provenance on attributed content: the
 identity of every model that touched the construction path is already recorded as historical fact. Parity
@@ -202,10 +272,33 @@ is checkable here as a direct consequence of the accepted provenance decision.
 
 The vision states both halves of the conflict and never resolves it — 3.42 treats interchangeable
 consolidation models as a feature of model independence, while 10.41 requires frozen weights for the
-persistent-learning proof. The resolution proposed here is that model independence is a claim about *the
+persistent-learning proof. The resolution adopted here is that model independence is a claim about *the
 substrate surviving model replacement*, not a licence to import capability from a stronger model during the
-very experiment that claims no such import occurred. Rule 5 preserves 3.42's intent for production while
-constraining it for the experiment.
+very experiment that claims no such import occurred. Rule 5 preserves 3.42's intent for production and for
+later labelled variants, while excluding it from the primary proof.
+
+### Why "hard parity" was the wrong phrase
+
+The original proposal described decision-time compute as under "hard parity across A/B/C". That was
+imprecise in a way that mattered. B and C necessarily receive memory context that A does not, so their
+input token counts, and therefore their physical inference cost, cannot be equal — and *should* not be, since
+memory access is the variable under test. Stating parity at the level of physical compute would have made
+the ADR either unsatisfiable or quietly violated at the first run.
+
+What is genuinely controllable is the **seat**: the model, its allowances, its tools, its decoding
+configuration, its stopping policy, and the task-visible information other than memory. Rule 1 enumerates
+those seven dimensions so the control is checkable (J-1) rather than rhetorical, and rule 3 makes the
+memory-contributed difference a *reported quantity* instead of a violated constraint.
+
+### Why claim boundaries belong in this ADR
+
+Controlling a comparison and interpreting it are different acts, and the second is where a controlled
+experiment is most often over-read. Rule 9 fixes in advance what each outcome licenses, before any result
+exists to motivate a generous reading. The `C > A but C ≈ B` case is the one that most needs pre-committing:
+it is a real and informative result — persistent external memory helped — and it is also precisely the
+result most likely to be reported as though it validated the architecture. `.claude/rules/scientific-method.md`
+requires freezing evaluation rules before they judge the mechanism they evaluate; a claim-licensing rule is
+part of that freeze.
 
 The rules are not symmetric across axes because the axes are not symmetric. Rule 7 exists because
 equalizing offline compute would be the single most damaging thing this ADR could do, and it is the
@@ -237,7 +330,8 @@ detecting an accidental parity break before results are published rather than af
 how recall is built; the parity configuration must be frozen before the first run, which removes the option
 of tuning C after seeing early results.
 
-**Newly required:** a declared model allowlist for the construction path; per-task metering of calls,
+**Newly required:** model-identity equality between the reasoning seat and the construction path for the
+primary proof, with heterogeneous runs labelled as variants; per-task metering of calls,
 generated tokens, hidden reasoning tokens and injected-context tokens; per-condition lifetime compute
 totals in the experiment record; a committed, content-hashed parity configuration.
 
