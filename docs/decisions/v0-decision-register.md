@@ -47,8 +47,14 @@ Six decisions settled: D-01, D-08, D-09, D-17, D-21, D-22 (ADR-0002 … ADR-0006
 **Thirteen decisions settled:** D-01, D-02, D-03, D-05, D-08, D-09, D-10, D-17, D-21, D-22, D-24, D-27, D-28
 (ADR-0002 … ADR-0013).
 
-**Next blocker: D-13 (narrowed) — activation and context evidence.** ADR-0014 proposed 2026-09-10, awaiting
-review. Split approved; credit attribution is **D-30** and remains unresolved.
+**Fourteen decisions settled:** D-01, D-02, D-03, D-05, D-08, D-09, D-10, D-13, D-17, D-21, D-22, D-24, D-27,
+D-28 (ADR-0002 … ADR-0014).
+
+**Next blocker: D-31 — context measurement basis.** ADR-0015 proposed 2026-09-10, awaiting review. Without it
+ADR-0003 rule 3's injected-memory parity cannot be enforced preflight or attributed per segment, so rule 9's
+claim boundary is unverifiable.
+
+**D-30** (credit attribution) is unblocked but deliberately not drafted.
 
 Earlier blocking analysis, retained for reference:
 
@@ -255,8 +261,9 @@ arrives.
 
 **Tier:** D3 (scientific)
 **Vision:** 3.12, 3.39, 5.36–5.41
-**Status:** ADR-0014 proposed 2026-09-10; awaiting owner review. **Split approved by owner 2026-09-10** — as
-narrowed, D-13 covers activation and context evidence only; credit attribution is **D-30**.
+**Status:** **SETTLED** — ADR-0014 accepted 2026-09-10 after three owner-directed amendments (presentation is
+segment-based; the exactness boundary is the canonical model-request input; the trace is never an
+authorization side channel). Split approved by owner; credit attribution is **D-30**.
 
 **Split analysis (2026-09-10).** D-13 as registered contains two decisions of different kinds:
 
@@ -612,7 +619,7 @@ field entering the historical trace except as explicitly attributed estimate con
 
 **Tier:** D2 (scientific / benchmark-adjacent)
 **Vision:** 5.14; `.claude/rules/scientific-method.md`
-**Status:** pending. **Discovered while drafting ADR-0014; not decided there.**
+**Status:** ADR-0015 proposed 2026-09-10; awaiting owner review. **Discovered while drafting ADR-0014.**
 
 ADR-0003 rule 3 requires conditions B and C to share one maximum injected-context budget, and J-4 requires
 token-counting the injected block. Neither says **how** size is measured when a provider does not expose exact
@@ -627,6 +634,25 @@ available post-hoc, and covering the whole request rather than the injected port
 The choice determines whether ADR-0003's B/C parity is verifiable at all, and therefore whether the claim
 boundary in ADR-0003 rule 9 can be checked. Not decided in ADR-0014 because that ADR's question was what the
 trace records, not which accounting standard the benchmark adopts.
+
+### D-32 — Trace authorization label propagation
+
+**Tier:** D3 (security / privacy)
+**Vision:** 9.24, 9.25, 9.14, 9.22
+**Status:** pending. **Discovered while amending ADR-0014; minimum invariant stated there, mechanism not
+designed.**
+
+ADR-0014 rule 18a establishes the minimum in force: historical observability never grants broader access than
+the underlying information permits; trace reads are subject to their sources' authorization; a redacted view
+serves inspectors with lesser authority; and **a derived segment is at least as restricted as its most
+restricted source** — a conservative default that can over-restrict but never leak.
+
+Unresolved: how authorization labels propagate across transformation ancestry; how a redacted view is composed
+so metadata remains useful without disclosing content; and whether the conservative default may ever be relaxed
+for derivations that genuinely disclose nothing about their sources.
+
+Interacts with **D-29** (derived revocation) and with vision 9.24–9.25 on memory taint. Both concern
+propagation across derivation, from different directions — revocation removes, authorization restricts.
 
 ---
 
