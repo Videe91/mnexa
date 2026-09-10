@@ -40,8 +40,8 @@ the highest-risk items in this register.
 
 Six decisions settled: D-01, D-08, D-09, D-17, D-21, D-22 (ADR-0002 … ADR-0006).
 
-**Next blocker: D-02 — canonical object set for v0**, tightly coupled to **D-03**. Specification items 6–9
-cannot be written without it, and items 10–16 are each a contract *over* those objects.
+**Next blocker: D-02 — canonical object set for v0.** ADR-0007 proposed 2026-09-10, awaiting review.
+D-03 is no longer coupled to it: criterion β separated plane assignment from construction authority.
 
 **D-23 is deferred.** It is not required to write a correct v0 specification: ADR-0006 treats all
 supersessions uniformly, which is complete and safe, and classification would only refine signal quality.
@@ -88,9 +88,7 @@ mechanically. Every other object definition depends on which side of this line e
 
 **Tier:** D2
 **Vision:** 2.2–2.9, 3.2, 10.6
-**Status:** **UNBLOCKED and now the critical path** — D-01 settled by ADR-0002, which supplies the plane
-assignment rule this decision applies. Blocks specification items 6–9 (domain model, canonical object
-definitions, relationships, lifecycle) and transitively items 10–16.
+**Status:** ADR-0007 proposed 2026-09-10; awaiting owner review.
 
 The vision names ~16 intelligence-graph node types across all phases. v0 needs the minimum subset that
 closes the loop. Which objects exist in v0 is durable because later phases extend rather than replace them.
@@ -99,8 +97,11 @@ closes the loop. Which objects exist in v0 is durable because later phases exten
 
 **Tier:** D3 (epistemic semantics)
 **Vision:** 2.3, 3.8, 3.2, 10.7
-**Status:** **UNBLOCKED** — D-01 settled. Tightly coupled to D-02: Episode's plane assignment cannot be made
-in D-02 without knowing whether episode construction is a model act. **Vision tension T-1 — see below.**
+**Status:** pending; **narrowed** by ADR-0007. Episode's plane is fixed as interpretive (Interpretation of
+kind `episode`), resolving tension T-1. D-03 is now purely about construction: who draws boundaries, whether
+generation is model-based/deterministic/hybrid/externally supplied, when episodes form, and boundary
+revision policy. The coupling that made D-02 and D-03 look inseparable dissolved once criterion β
+(plane follows epistemic meaning, not producer) was adopted — see ADR-0007.
 
 What exactly constitutes an Episode, what its boundaries are, and *who* draws them: the agent, a
 deterministic rule, or a model. If a model segments episodes, the episode is an interpretation and cannot
@@ -110,7 +111,9 @@ sit in the immutable plane.
 
 **Tier:** D2
 **Vision:** 2.4, 3.7, 6.8
-**Status:** **UNBLOCKED** — D-01 settled. Follows D-02, which determines which objects need identity.
+**Status:** pending; **shaped** by ADR-0007. Identity applies to two things now known to be interpretive:
+the Entity object and `identity_binding` interpretations. Raw observed identifiers are historical payload
+content and are not Entities. D-04 decides identifier format, issuance, and resolution/merge/split semantics.
 
 Identifier format and issuance for records and entities; what makes two references the same entity;
 whether entity resolution is reversible; whether identity may be assigned by a model.
@@ -119,8 +122,9 @@ whether entity resolution is reversible; whether identity may be assigned by a m
 
 **Tier:** D2
 **Vision:** 2.6, 6.4, 6.6
-**Status:** **UNBLOCKED** — D-01 settled. Partially constrained by ADR-0005's commit ordering, which
-establishes a total order for interpretive versions but not the occurred-at/recorded-at question.
+**Status:** pending. Constrained by ADR-0005's commit ordering (a total order for interpretive versions, not
+the occurred-at/recorded-at question) and now interacting with **D-24**, which must settle whether historical
+records may cite one another and under what ordering constraint.
 
 Whether v0 is bitemporal (occurred-at vs recorded-at), what ordering guarantee the ledger provides, and
 how "what was knowable at time T" is reconstructed. This is also a benchmark-integrity control: without a
@@ -197,7 +201,10 @@ Where a confidence value comes from at t=0, given that the vision distrusts mode
 
 **Tier:** D3 (scientific)
 **Vision:** 2.7, 3.6, 6.19–6.23, 10.18
-**Status:** pending
+**Status:** pending; **constrained** by ADR-0007. Decision, Prediction, Action and Outcome are historical
+event types, not canonical objects, so linkage must be expressed as references between records rather than
+as fields on a mutable object. **Now blocked on D-24**, which decides whether historical→historical
+references are permitted at all.
 
 What must be recorded at decision time so that prediction error is computable later without hindsight
 contamination; how an outcome binds to the decision that produced it; what happens when an outcome never
@@ -220,7 +227,8 @@ criterion is a defect under the standing rules.
 
 **Tier:** D2
 **Vision:** 10.5, 10.11
-**Status:** pending
+**Status:** pending; **shaped** by ADR-0007. The port surface operates over three canonical object types plus
+typed event append.
 
 The conceptual operations v0 exposes. Durable because it is the externally consumed interface and because
 10.5 makes it constitutional that agents do not see storage.
@@ -361,13 +369,34 @@ Not decided in ADR-0006 because it concerns what a supersession *event* must car
 question from what a dependent should do, and settling it there would repeat the scope expansion that
 produced D-21 and D-22.
 
+### D-24 — Historical-to-historical reference semantics
+
+**Tier:** D2
+**Vision:** 2.7, 10.18, 3.6
+**Status:** pending. **Discovered while drafting ADR-0007; not decided there.**
+
+ADR-0002 I-5 governs historical→interpretive references. ADR-0005 governs interpretive→interpretive. Nothing
+governs a historical record citing another historical record.
+
+ADR-0007 makes this immediately load-bearing by demoting Decision, Prediction, Action and Outcome to event
+types: an `OutcomeObserved` record must point at the `DecisionMade` record it is an outcome of, and there is
+currently no rule permitting or constraining that edge.
+
+Both endpoints are immutable, so no version-pinning question arises. Open: whether such references are
+permitted at all; whether a commit-order preexistence constraint analogous to ADR-0005 L-7 applies; whether
+they may form cycles; and whether a record may reference a record committed after it (a decision citing its
+own later outcome — presumably forbidden, but unstated).
+
+**D-12 is blocked on this.** Not decided in ADR-0007 because that ADR's question was object classification,
+and settling reference semantics there would have expanded the decision space beyond what was surfaced.
+
 ---
 
 ## Contradictions and tensions found in the vision
 
 These are recorded as findings, not resolved here.
 
-### T-1 — Which plane does an Episode belong to?
+### T-1 — Which plane does an Episode belong to? — **RESOLVED by ADR-0007**
 
 Section 3.2 places episodes in the **Memory Plane**, distinct from the Experience Plane, implying episodes
 are derived and revisable. Section 10.7 sorts everything into append-only *historical* objects or evolvable
@@ -375,6 +404,11 @@ are derived and revisable. Section 10.7 sorts everything into append-only *histo
 "preserves both representations". An episode therefore reads as interpretive, yet Sections 2.3 and 3.8
 describe it with the language of history ("what happened"). The boundary case is real and must be decided
 explicitly. → **D-03**
+
+**Resolution (ADR-0007, proposed):** 3.2 is correct. Under criterion β an Episode asserts that records form
+one meaningful unit — organization, not occurrence — so it is interpretive regardless of what constructs it.
+3.8's "preserves both representations" is satisfied by raw records staying historical while the grouping over
+them is interpretive.
 
 ### T-2 — Confidence has no ground at t=0
 
