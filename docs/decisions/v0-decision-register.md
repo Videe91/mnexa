@@ -50,8 +50,9 @@ Six decisions settled: D-01, D-08, D-09, D-17, D-21, D-22 (ADR-0002 … ADR-0006
 **Fifteen decisions settled:** D-01, D-02, D-03, D-05, D-08, D-09, D-10, D-13, D-17, D-21, D-22, D-24, D-27,
 D-28, D-31 (ADR-0002 … ADR-0015).
 
-**Next blocker: D-12 — decision, prediction and outcome linkage.** No ADR drafted; awaiting owner direction.
-The last unsettled link in the v0 cognitive loop, blocking elements 14 and 15 and upstream of D-07 and D-30.
+**Next blocker: D-12 — decision, prediction and outcome linkage.** ADR-0016 proposed 2026-09-10, awaiting
+review. The last unsettled link in the v0 cognitive loop; unblocks D-07 and satisfies D-30's binding deferral
+condition.
 
 **D-30 is deferred from v0** — see its entry for the assessment and the four conditions.
 
@@ -192,10 +193,14 @@ recoverability constitutional.
 
 **Tier:** D3 (constitutional)
 **Vision:** 3.41, 3.48 law 9, 10.21, 10.70 law 5
-**Status:** pending. Pre-shaped by ADR-0002 rules 8-10 (a consolidation model's output is an attributed
-production recorded historically; the proposal it carries is interpretive) and further by ADR-0006 rule 8
-(revalidation may propose a new version but head movement obeys normal promotion rules — revalidation is not
-a shortcut around epistemic authority).
+**Status:** **UNBLOCKED by ADR-0016** (proposed), which supplies the raw historical structure consolidation
+needs — what was decided, under which context and watermark, what was executed, what outcome evidence appeared,
+which predictions were evaluated — while telling it none of which memory deserves credit, whether the decision
+was wise, how strongly an action caused an outcome, what to strengthen, or what should become a skill.
+
+Pre-shaped by ADR-0002 rules 8-10 (a consolidation model's output is an attributed production recorded
+historically; the proposal it carries is interpretive) and by ADR-0006 rule 8 (revalidation may propose a new
+version but head movement obeys normal promotion rules).
 
 The vision forbids a model having unilateral authority over truth and separates author from judge. In v0
 there is no Verification Engine and no second agent. What, concretely, may a model establish in a
@@ -236,9 +241,10 @@ recall makes controlled comparison noisier and makes a failed run non-reproducib
 
 **Tier:** D3 (epistemic semantics)
 **Vision:** 3.10, 3.14, 6.21, 8.5, 8.6
-**Status:** pending. **Constrained by ADR-0006** rule 5/M-6 (staleness must not be folded into confidence)
-and by **ADR-0011** rule 10/S-11 (retrieval scores may not become confidence, so the bootstrap cannot draw on
-ranking signals). The bootstrap question (T-2) remains fully open.
+**Status:** pending. **Constrained by ADR-0006** rule 5/M-6 (staleness must not be folded into confidence), by
+**ADR-0011** rule 10/S-11 (retrieval scores may not become confidence) and by **ADR-0016** rule 11/X-10 (no
+probability or confidence is invented where a source produced none). The bootstrap question (T-2) remains fully
+open.
 **Vision tension — see Contradictions below.**
 
 Where a confidence value comes from at t=0, given that the vision distrusts model-asserted confidence
@@ -250,7 +256,9 @@ Where a confidence value comes from at t=0, given that the vision distrusts mode
 **Vision:** 2.7, 3.6, 6.19–6.23, 10.18
 **Status:** pending; **constrained** by ADR-0007. Decision, Prediction, Action and Outcome are historical
 event types, not canonical objects, so linkage must be expressed as references between records rather than
-as fields on a mutable object. **Fully unblocked and now the NEXT BLOCKER.** Every dependency is settled:
+as fields on a mutable object. **Status: ADR-0016 proposed 2026-09-10; awaiting owner review.**
+
+Was fully unblocked; Every dependency is settled:
 ADR-0008 supplies the structural edges (`outcome_for`, `execution_of`, `evaluates_prediction`); ADR-0010
 supplies the knowledge watermark, observation lag as `recorded_at` − `occurred_at`, and the rule that
 prediction horizon lives in payload; ADR-0013 makes the decision's watermark the cycle's; ADR-0014 supplies the
@@ -323,8 +331,10 @@ criterion is a defect under the standing rules.
 
 **Tier:** D2
 **Vision:** 10.5, 10.11
-**Status:** pending; **shaped** by ADR-0007 (three canonical object types plus typed event append) and by
-ADR-0011 (the recall port accepts a watermark and returns version-pinned items with completion status).
+**Status:** pending; **shaped** by ADR-0007 (three canonical object types plus typed event append), ADR-0011
+(the recall port accepts a watermark and returns version-pinned items with completion status), ADR-0012
+(provenance traversal and version-scoped requests are distinct operations), ADR-0014 (the assembly boundary
+stamps provenance channels) and ADR-0016 (decision, prediction, action and outcome capture).
 
 The conceptual operations v0 exposes. Durable because it is the externally consumed interface and because
 10.5 makes it constitutional that agents do not see storage.
@@ -629,9 +639,10 @@ ADR-0004's corpus isolation and by ablation, not by per-memory credit. ADR-0011 
 learning-from-use out of the recall path, so no v0 mechanism depends on attribution.
 
 **Deferral conditions, which must hold:** (i) ADR-0014's trace preserves the evidence a later standard needs —
-satisfied; (ii) **D-12 must record decision→outcome linkage** so the raw material exists; (iii) no v0 mechanism
-silently performs attribution — ADR-0014's hard boundary already forbids it; (iv) v0 makes no per-memory
-utility claim.
+**satisfied**; (ii) D-12 must record decision→outcome linkage so the raw material exists — **satisfied by
+ADR-0016** (proposed), whose rule 21 supplies the linked structure and whose X-22 keeps every causal field out
+of the historical plane; (iii) no v0 mechanism silently performs attribution — ADR-0014 and ADR-0016 both
+forbid it; (iv) v0 makes no per-memory utility claim.
 
 ADR-0014 forbids any `influence_score`, `causal_weight`, `credit` or `blame` field entering the historical
 trace except as explicitly attributed estimate content.

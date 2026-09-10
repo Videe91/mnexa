@@ -2,8 +2,9 @@
 
 **Phase:** MNEXA v0 — specification phase, decision audit stage
 
-**Current milestone:** ADR-0002 … ADR-0015 accepted. Specification remains **blocked** on **D-12** (decision,
-prediction and outcome linkage), the last unsettled link in the v0 cognitive loop.
+**Current milestone:** ADR-0002 … ADR-0015 accepted. `ADR-0016` proposes the decision, prediction, action and
+outcome evidence contract — the last unsettled link in the v0 cognitive loop. Specification remains
+**blocked** at that D3 approval boundary.
 
 **Branch:** `spec/mnexa-v0`
 
@@ -14,13 +15,12 @@ until the durable decisions it depends on are accepted.
 
 **Active implementation plan:** None.
 
-**Last completed artifact:** `ADR-0015` — **accepted** 2026-09-10 after three owner-directed amendments. The
-register `docs/decisions/v0-decision-register.md` holds the inventory of D2/D3 decisions (D-01 … D-26) plus 5
+**Last completed artifact:** `ADR-0016` — **proposed** 2026-09-10. The register `docs/decisions/v0-decision-register.md` holds the inventory of D2/D3 decisions (D-01 … D-26) plus 5
 recorded vision tensions, one of which (T-1) ADR-0007 resolved.
 
 **Verification:** Documentation-only change. Verified by inspection: ADR-0002, ADR-0003 and ADR-0004 follow
-the template in `docs/decisions/README.md`; all 237 invariants (14 I-, 10 J-, 17 K-, 10 L-, 21 M-, 11 N-, 16 P-,
-15 Q-, 24 R-, 25 S-, 14 T-, 13 U-, 28 V-, 19 W-) carry stated mechanical checks; no placeholder text remains; register entries carry tier classification and vision
+the template in `docs/decisions/README.md`; all 259 invariants (14 I-, 10 J-, 17 K-, 10 L-, 21 M-, 11 N-, 16 P-,
+15 Q-, 24 R-, 25 S-, 14 T-, 13 U-, 28 V-, 19 W-, 22 X-) carry stated mechanical checks; no placeholder text remains; register entries carry tier classification and vision
 references; no production code, tests, specification, benchmark harness or plan were created.
 
 **Open D2/D3 decisions:** 32 recorded in `docs/decisions/v0-decision-register.md` (D-01 … D-32); D-01, D-02,
@@ -67,7 +67,10 @@ of which D-19, D-23, D-25 and **D-30** are deferred.
 - `ADR-0015` — context measurement basis — **accepted**. Settles D-31. Compound standard with exactly one
   normative preflight basis, the pinned Context Measurement Profile; memory-contributed context defined over
   presented model-visible material; divergence measured per treatment, never assumed to cancel.
-- **D-12 (decision, prediction and outcome linkage) is the next blocker.** Fully unblocked; no ADR drafted.
+- `ADR-0016` — decision, prediction, action and outcome evidence (D-12) — **proposed, D3, awaiting owner
+  review**. Four event kinds with explicit structural links and no cardinality fiction; absence of outcome is
+  absence of evidence, never failure. Carries one proposed refinement to ADR-0008 (`decided_from`).
+  **Unblocks D-07.**
 - **D-30 (credit attribution) is DEFERRED from v0** under four stated conditions — see its register entry. The
   binding one: D-12 must record decision→outcome linkage so a later standard has raw material.
 - D-32 (trace authorization label propagation) minimum invariant is in force; mechanism registered not
@@ -81,13 +84,12 @@ of which D-19, D-23, D-25 and **D-30** are deferred.
   for a correct v0 spec.
 - Remaining after D-05: D-04, D-06, D-07, D-10 … D-16, D-18 … D-20, D-23, D-25, D-26.
 
-**Known blockers:** D-12 requires an accepted ADR before specification elements 14 and 15 may be written, and
-before D-07 (consolidation) can be settled. Per `.claude/rules/decisions.md`, work does
+**Known blockers:** `ADR-0016` requires explicit owner approval, including its proposed `decided_from`
+extension to ADR-0008. Per `.claude/rules/decisions.md`, work does
 not proceed past an unapproved D3 boundary. The v0 specification additionally awaits the remaining
 domain-model decisions.
 
 **Experiments in progress:** None. No benchmark contract exists.
 
-**Next approved action:** Surface **D-12** (decision, prediction and outcome linkage) as a proposed ADR, on
-owner direction. Do not write MNEXA production code, the benchmark
+**Next approved action:** Owner reviews `ADR-0016`. Do not write MNEXA production code, the benchmark
 harness, the v0 specification, or an implementation plan.
