@@ -1,6 +1,6 @@
 ---
 id: ADR-0006
-status: proposed
+status: accepted
 date: 2026-09-10
 scope: constitutional
 vision_refs:
@@ -16,6 +16,24 @@ supersedes: []
 **Tier: D3 (epistemic semantics).** Requires explicit owner approval.
 
 Covers register entry **D-22**.
+
+**Approval:** accepted by owner 2026-09-10, following two owner-directed precision amendments made while the
+ADR was still `proposed`. The record below is as amended and approved. All decisions from the original
+proposal are retained: historical and current validity stay distinct; supersession questions but does not
+falsify; staleness never alters confidence automatically; stale objects stay available with status exposed;
+detection queues revalidation rather than forcing eager recomputation; blast radius is evaluated lazily; and
+truncated traversal is never reported as clean.
+
+**Amendment history (all pre-acceptance, owner-directed):**
+
+1. **Staleness is derived assessment, never version mutation.** The original said staleness was computed
+   rather than stored, but did not forbid a version acquiring a mutable property, did not enumerate the
+   assessment states, and treated depth as the only source of incompleteness. — rules 3–4a, invariants
+   M-13 … M-16.
+2. **Revalidation creates new epistemic history.** The original said revalidation produces a new version but
+   did not cover the inconclusive/failed case, did not state that identical content still warrants a new
+   version, and did not close the possibility of revalidation being used to bypass normal promotion rules.
+   — rules 7–8, invariants M-17 … M-21.
 
 ## Decision question
 
@@ -159,15 +177,32 @@ Seven rules.
 
 ### Computation and propagation
 
-3. **Staleness is computed, never stored as truth.** Consistent with ADR-0005 rule 4, staleness is derived on
-   demand by comparing pinned versions against their objects' heads. No authoritative staleness flag is
-   persisted, so it cannot drift from the graph. Caches for performance are permitted only if invalidated by
-   the same comparison.
-4. **Direct and inherited staleness are distinguished, and propagation is lazy.** *Direct* staleness means a
-   pinned source's head has moved. *Inherited* staleness means an ancestor is stale. Both are computed by
-   traversal on demand; neither is eagerly materialized across the graph. Traversal runs to a declared depth
-   limit, and **a truncated traversal reports truncation rather than returning "not stale"** — an unknown
-   must never be rendered as a clean bill of health.
+3. **Staleness is a derived assessment, never a property of the version.** An immutable interpretive version
+   never acquires or loses a mutable "stale" attribute. Dependency freshness is a *current assessment*
+   computed over three inputs: the immutable version's pinned provenance, the current heads of the referenced
+   source objects, and — where requested — the freshness state of its ancestry. The version itself is
+   unchanged by the assessment, before or after. Caches are permitted for performance only if invalidated by
+   the same comparison that would produce the assessment fresh.
+
+   **Queue and scheduling state are operational metadata.** Enqueueing, dequeueing, retrying or scheduling a
+   revalidation must not mutate the immutable interpretive version in any way, including its content hash.
+
+4. **The assessment has four distinct states, which must not collapse.** Exact naming may differ in
+   implementation; the semantics may not.
+
+   | State | Meaning |
+   |---|---|
+   | `CLEAN` | The required traversal **completed** and found no stale dependency |
+   | `DIRECT_STALE` | One or more of this version's own source-version pins no longer correspond to the relevant source object's current head |
+   | `INHERITED_STALE` | This version's own pins may still match, but at least one pinned dependency is itself stale through its ancestry |
+   | `CHECK_INCOMPLETE` | The traversal could not be completed |
+
+4a. **`CLEAN` requires a completed traversal; incompleteness is never "not stale".** If traversal is
+   incomplete for *any* reason — depth limit, insufficient permissions, a missing or corrupt reference, a
+   resource bound, or any other interruption — the result must explicitly report `CHECK_INCOMPLETE` and
+   identify why. Incomplete inspection must never be converted into a clean result. Propagation remains
+   lazy: direct and inherited staleness are computed by traversal on demand, never eagerly materialized
+   across the graph.
 
 ### Consequence
 
@@ -181,8 +216,28 @@ Seven rules.
    during consolidation under a declared budget, highest-priority first. Queue depth and age are observable so
    a persistent backlog is visible rather than silent. Processing never occurs during an evaluation epoch
    (ADR-0004 rule 9), and its compute is metered as offline consolidation compute (ADR-0003 rule 7).
-   Revalidation that changes an interpretation produces a **new version** (ADR-0005 rule 6); revalidation that
-   confirms it re-pins to the current source versions, also as a new version.
+
+### Revalidation creates new epistemic history
+
+8. **A change in current epistemic validity produces new epistemic history. It never rewrites old epistemic
+   history.** Successful revalidation must never toggle an existing immutable version back to fresh. If
+   `P v1` was derived from `X v1`, then `P v1` remains permanently an interpretation derived from `X v1`,
+   whatever later happens to `X`.
+
+   - **Revalidation confirms the conclusion** → create a **new version** (`P v2`) whose provenance records the
+     basis actually used by the revalidation. The semantic content of `P v2` may be byte-identical to `P v1`;
+     a new version is still justified, because the *evidential and derivational basis changed* even where the
+     conclusion did not.
+   - **Revalidation changes the conclusion** → create a new version with the revised content and its new
+     provenance.
+   - **Revalidation is inconclusive or fails** → do not rewrite the prior version; do not silently clear its
+     stale assessment; record the revalidation attempt and its outcome separately, as a historical event
+     under ADR-0002 rules 8–9 (committed by the trusted runtime, with model attribution where a model
+     performed the work). Current-use handling continues to be governed by rules 5–6.
+
+   **Head movement is not exempt from normal rules.** Moving an object's mutable head to a successfully
+   revalidated new version must satisfy whatever validity and promotion requirements otherwise apply to that
+   object. Revalidation confers no shortcut around epistemic rules.
 
 ### Invariants and how each is checked
 
@@ -192,7 +247,7 @@ Seven rules.
 | M-2 | Staleness is derived, never read from persisted state as authoritative | Recompute staleness independently and compare against any cached value; assert agreement, and assert no code path reads a stored flag without that comparison |
 | M-3 | Direct staleness is computed correctly | For each dependent, assert `stale_direct` ⟺ ∃ pinned source version ≠ that source object's head |
 | M-4 | Inherited staleness is distinguished from direct | Assert every staleness result labels which kind it is and names the responsible ancestor |
-| M-5 | Truncated traversal is reported, never silently clean | Force the depth limit in a fixture with a stale distant ancestor; assert the result carries `truncated = true` and is not reported as not-stale |
+| M-5 | Depth-truncated traversal is reported, never silently clean | Force the depth limit in a fixture with a stale distant ancestor; assert the result is `CHECK_INCOMPLETE`, not `CLEAN` |
 | M-6 | Confidence is unchanged by upstream supersession | Assert the dependent's confidence value is byte-identical before and after |
 | M-7 | Stale objects remain retrievable and usable | Assert retrieval succeeds and the object is admissible to recall while stale |
 | M-8 | Every object entering active cognition carries a staleness determination | Assert each recall result includes a staleness verdict and its truncation status |
@@ -200,6 +255,15 @@ Seven rules.
 | M-10 | Revalidation never runs inside an evaluation epoch | Assert no revalidation processing timestamp falls between an epoch's open and close (ADR-0004 K-4) |
 | M-11 | Revalidation produces new versions rather than editing | Assert the pre-revalidation version still resolves unchanged after processing |
 | M-12 | Queue backlog is observable | Assert queue depth and oldest-entry age are exported per consolidation cycle |
+| M-13 | No interpretive version acquires or loses a staleness attribute | Hash the version before and after assessment; assert unchanged. Assert no staleness field exists in the version schema |
+| M-14 | Every assessment returns exactly one of the four states, and `CLEAN` implies a completed traversal | Assert the returned state ∈ {CLEAN, DIRECT_STALE, INHERITED_STALE, CHECK_INCOMPLETE}; assert every `CLEAN` result carries evidence that traversal completed |
+| M-15 | Incompleteness from any cause yields `CHECK_INCOMPLETE`, never `CLEAN` | Fixture per cause — depth limit, denied permission, missing reference, corrupt reference, resource bound, interruption; assert each returns `CHECK_INCOMPLETE` with the reason identified |
+| M-16 | Queue and scheduling state live outside the version | Assert no queue or scheduling field exists in the version schema; assert version content hash is unchanged across enqueue, dequeue, retry and reschedule |
+| M-17 | Successful revalidation creates a new version and leaves the prior version resolvable and unchanged | Assert a new version identity exists after revalidation and the prior version's content hash is unchanged and still resolves |
+| M-18 | Confirming revalidation still creates a new version even when content is identical | Fixture where revalidation reproduces identical content; assert a new version identity was created and its provenance differs from the prior version's |
+| M-19 | Inconclusive or failed revalidation mutates nothing and clears no assessment | Assert the prior version's hash is unchanged and its assessment still evaluates to the same non-`CLEAN` state after a failed attempt |
+| M-20 | Revalidation attempts and outcomes are recorded as historical events | Assert a historical record exists per attempt with `committed_by` a trusted runtime, and with model attribution where a model performed the work (ADR-0002 rules 8–9) |
+| M-21 | Head movement to a revalidated version is subject to the same validity/promotion checks as any other head movement | Assert no revalidation-specific code path bypasses the standard head-movement checks |
 
 ## Evidence and rationale
 
@@ -228,6 +292,44 @@ Rule 4's truncation clause deserves its own note. A depth-limited traversal that
 simply stopped looking is worse than no check, because it manufactures false assurance. Reporting truncation
 keeps the system's ignorance visible, which is the distinction 8.6 draws between *unknown* and *answered*.
 
+### Why staleness must not touch the version
+
+The original proposal said staleness was computed rather than stored, which sounds equivalent to the amended
+rule but is not. "Computed, not stored" leaves open a version carrying a cached or annotated staleness field
+that happens to be recomputed — and that field would sit inside the version's content identity, which
+ADR-0005 rule 6 fixed at commit. A version whose hash changed because its basis moved elsewhere in the graph
+would break L-9, L-6 and, through them, the stability that ADR-0002 I-9a depends on. Rule 3 therefore states
+the stronger property directly: the version is untouched, and freshness is an assessment *about* it computed
+from three named inputs.
+
+The same reasoning extends to queue state. A scheduling flag is exactly the kind of operational field that
+would naturally be attached to the object it schedules work for; attaching it to an immutable version would
+mutate epistemic history for an operational reason, which is the worst possible trade.
+
+Enumerating four states rather than a boolean matters for the same reason truncation reporting does. A
+boolean forces `CHECK_INCOMPLETE` to collapse into one of the two answers, and it will collapse into the
+convenient one. Separating `DIRECT_STALE` from `INHERITED_STALE` additionally preserves the distance
+information that any future weighting — including D-23's classification — would need; a boolean discards it
+irrecoverably.
+
+### Why revalidation cannot restore a version
+
+Toggling `P v1` back to fresh after revalidating against `X v2` would assert something false: that `P v1` was
+derived from `X v2`. It was not. The freshness of an interpretation is not a property that can be repaired,
+because it is not a property of the interpretation at all — it is a relationship between that interpretation's
+fixed basis and the world's current state. Once the basis moves, the only honest way to have a current
+interpretation is to derive one.
+
+This is why identical content still warrants a new version. `P v2` with the same words as `P v1` is a
+genuinely different epistemic object: it is the claim *as confirmed against `X v2`*, and it carries different
+provenance. Collapsing the two would lose the fact that the confirmation ever happened — which is precisely
+the evidence a later reader would want when asking whether a principle survived a correction to its basis.
+
+The failure case needed stating because it is where the temptation is strongest. A revalidation that fails
+leaves the system with work done and nothing to show for it, and the tidy-looking move is to clear the
+assessment and move on. Rule 8 forbids that: the attempt is recorded as history, the version is untouched,
+and the object remains stale-and-available under rules 5–6.
+
 Rule 6 is where the policy earns its place. A staleness signal that never reaches cognition changes no
 decision. Surfacing it at recall means that when an outcome is later analysed, the record shows whether the
 decision rested on an unrechecked basis — which feeds directly into D-13's attribution question rather than
@@ -243,8 +345,10 @@ a stale basis was involved.
 path; consolidation gains a queue with its own budget and priority rule; a stale-but-fine object may be
 revalidated repeatedly across cycles if the priority rule is poor.
 
-**Newly required:** on-demand staleness computation with a declared depth limit and truncation reporting; a
-revalidation queue with deduplication, priority, depth and age metrics; staleness fields on recall results.
+**Newly required:** on-demand freshness assessment returning one of four states, with every incompleteness
+cause reported rather than collapsed; a revalidation queue held entirely outside interpretive versions, with
+deduplication, priority, depth and age metrics; freshness fields on recall results; historical recording of
+every revalidation attempt and outcome.
 
 **Constrained:** D-11 (confidence semantics) must not later fold staleness into confidence without
 superseding rule 5. D-13 (activation trace) gains staleness as a recorded attribute of each activation.

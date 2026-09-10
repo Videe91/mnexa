@@ -36,6 +36,17 @@ the highest-risk items in this register.
 
 ---
 
+## Critical path as of 2026-09-10
+
+Six decisions settled: D-01, D-08, D-09, D-17, D-21, D-22 (ADR-0002 … ADR-0006).
+
+**Next blocker: D-02 — canonical object set for v0**, tightly coupled to **D-03**. Specification items 6–9
+cannot be written without it, and items 10–16 are each a contract *over* those objects.
+
+**D-23 is deferred.** It is not required to write a correct v0 specification: ADR-0006 treats all
+supersessions uniformly, which is complete and safe, and classification would only refine signal quality.
+The spec can state the uniform policy without it.
+
 ## Dependency order
 
 ```text
@@ -77,7 +88,9 @@ mechanically. Every other object definition depends on which side of this line e
 
 **Tier:** D2
 **Vision:** 2.2–2.9, 3.2, 10.6
-**Status:** blocked on D-01
+**Status:** **UNBLOCKED and now the critical path** — D-01 settled by ADR-0002, which supplies the plane
+assignment rule this decision applies. Blocks specification items 6–9 (domain model, canonical object
+definitions, relationships, lifecycle) and transitively items 10–16.
 
 The vision names ~16 intelligence-graph node types across all phases. v0 needs the minimum subset that
 closes the loop. Which objects exist in v0 is durable because later phases extend rather than replace them.
@@ -86,7 +99,8 @@ closes the loop. Which objects exist in v0 is durable because later phases exten
 
 **Tier:** D3 (epistemic semantics)
 **Vision:** 2.3, 3.8, 3.2, 10.7
-**Status:** blocked on D-01. **Vision tension — see Contradictions below.**
+**Status:** **UNBLOCKED** — D-01 settled. Tightly coupled to D-02: Episode's plane assignment cannot be made
+in D-02 without knowing whether episode construction is a model act. **Vision tension T-1 — see below.**
 
 What exactly constitutes an Episode, what its boundaries are, and *who* draws them: the agent, a
 deterministic rule, or a model. If a model segments episodes, the episode is an interpretation and cannot
@@ -96,7 +110,7 @@ sit in the immutable plane.
 
 **Tier:** D2
 **Vision:** 2.4, 3.7, 6.8
-**Status:** blocked on D-01
+**Status:** **UNBLOCKED** — D-01 settled. Follows D-02, which determines which objects need identity.
 
 Identifier format and issuance for records and entities; what makes two references the same entity;
 whether entity resolution is reversible; whether identity may be assigned by a model.
@@ -105,7 +119,8 @@ whether entity resolution is reversible; whether identity may be assigned by a m
 
 **Tier:** D2
 **Vision:** 2.6, 6.4, 6.6
-**Status:** blocked on D-01
+**Status:** **UNBLOCKED** — D-01 settled. Partially constrained by ADR-0005's commit ordering, which
+establishes a total order for interpretive versions but not the occurred-at/recorded-at question.
 
 Whether v0 is bitemporal (occurred-at vs recorded-at), what ordering guarantee the ledger provides, and
 how "what was knowable at time T" is reconstructed. This is also a benchmark-integrity control: without a
@@ -115,8 +130,9 @@ recorded-at axis, later knowledge can silently leak into a reconstruction of an 
 
 **Tier:** D2 (D3 where it touches evidence semantics)
 **Vision:** 3.20, 3.43, 9.6, 10.36
-**Status:** blocked on D-01. **Partially settled by ADR-0002** rules 8-10 (model
-provenance for attributed content). Remaining scope: provenance minimum for non-model-authored records.
+**Status:** **UNBLOCKED** — D-01 settled. **Partially settled by ADR-0002** rules 8-10 (model provenance for
+attributed content) and further by ADR-0006 M-20 (revalidation attempts recorded with attribution).
+Remaining scope: provenance minimum for non-model-authored records.
 
 The minimum provenance every v0 object carries, explicitly including *model provenance* (3.43). The v0
 non-goals defer the epistemic immune system but not provenance itself — 10.36 makes evidence-path
@@ -126,8 +142,10 @@ recoverability constitutional.
 
 **Tier:** D3 (constitutional)
 **Vision:** 3.41, 3.48 law 9, 10.21, 10.70 law 5
-**Status:** pending. Pre-shaped by ADR-0002 rules 8-10: a consolidation model's output is an
-attributed production recorded historically; the proposal it carries is interpretive.
+**Status:** pending. Pre-shaped by ADR-0002 rules 8-10 (a consolidation model's output is an attributed
+production recorded historically; the proposal it carries is interpretive) and further by ADR-0006 rule 8
+(revalidation may propose a new version but head movement obeys normal promotion rules — revalidation is not
+a shortcut around epistemic authority).
 
 The vision forbids a model having unilateral authority over truth and separates author from judge. In v0
 there is no Verification Engine and no second agent. What, concretely, may a model establish in a
@@ -158,7 +176,8 @@ rule at specification level.
 
 **Tier:** D2 (D3 where it affects experimental validity)
 **Vision:** 5.3, 5.10; `.claude/rules/scientific-method.md`
-**Status:** pending
+**Status:** pending. **Touched by ADR-0006** rule 6: recall output must include a freshness determination,
+which is itself a computed value whose reproducibility falls under this decision.
 
 Whether recall must be deterministic given identical memory state and Context Frame. Nondeterministic
 recall makes controlled comparison noisier and makes a failed run non-reproducible.
@@ -167,7 +186,9 @@ recall makes controlled comparison noisier and makes a failed run non-reproducib
 
 **Tier:** D3 (epistemic semantics)
 **Vision:** 3.10, 3.14, 6.21, 8.5, 8.6
-**Status:** pending. **Vision tension — see Contradictions below.**
+**Status:** pending. **Constrained by ADR-0006** rule 5 and M-6: staleness must not be folded into
+confidence without superseding that rule. The bootstrap question (T-2) remains fully open.
+**Vision tension — see Contradictions below.**
 
 Where a confidence value comes from at t=0, given that the vision distrusts model-asserted confidence
 (3.10) but v0 has no predictive track record to ground it (6.21) and cannot yet learn the weighting (3.14).
@@ -186,7 +207,9 @@ arrives.
 
 **Tier:** D3 (scientific)
 **Vision:** 3.12, 3.39, 5.36–5.41
-**Status:** pending. **Vision tension — see Contradictions below.**
+**Status:** pending. **Partially settled by ADR-0006** rule 6 and M-8: every object entering active cognition
+carries a freshness determination, so an activation record must include it. The attribution question (T-3)
+remains fully open. **Vision tension — see Contradictions below.**
 
 The vision requires memory strength to depend on demonstrated usefulness, and requires recording what was
 *actually active* at decision time (5.40). It does not say how utility is attributed when several memories
@@ -243,7 +266,8 @@ allowed to fail silently. Idempotency is part of the durable contract if the cap
 
 **Tier:** D2 (scope)
 **Vision:** 2.16, 3.33–3.36
-**Status:** pending
+**Status:** pending. Retention pressure now arrives from three accepted decisions — ADR-0002 I-6, ADR-0005
+(pinned interpretive versions), ADR-0006 (long-stale objects as decay candidates).
 
 The stated v0 non-goals do not mention forgetting, but the vision treats it as core. Likely a deferral —
 but deferral must be explicit, because if v0 records no decay-relevant signal, decay cannot be added later
@@ -260,9 +284,9 @@ coding/debugging. Without a stated rule, coding-specific structure leaks in as "
 
 ### D-21 — Version pinning of interpretive-to-interpretive derivation edges
 
-**Tier:** D2
+**Tier:** D2, reclassified to **D3** — see status below.
 **Vision:** 3.20, 3.46, 3.21
-**Status:** pending. **Discovered while amending ADR-0002; not decided there.**
+**Discovered:** while amending ADR-0002; deliberately not decided there.
 
 ADR-0002 I-5 pins historical→interpretive references to immutable versions, and rule 11 permits transitive
 provenance through interpretive→interpretive derivation edges. It does not say whether those derivation
@@ -304,7 +328,9 @@ Option C, rejected).
 
 **Tier:** D2
 **Vision:** 3.21, 3.13, 3.34
-**Status:** ADR-0006 proposed 2026-09-10; awaiting owner review. **Discovered while drafting ADR-0005.**
+**Status:** **SETTLED** — ADR-0006 accepted 2026-09-10 after two owner-directed precision amendments
+(staleness is derived assessment with four states, never version mutation; revalidation creates new
+epistemic history and never restores a version). **Discovered while drafting ADR-0005.**
 
 ADR-0005 rule 4 makes staleness computable — an abstraction is stale with respect to a basis when its pinned
 version is not that object's current head. It says nothing about what should happen when staleness is
