@@ -343,6 +343,17 @@ Revisit if:
 Evidence that contamination occurred and was **not** caught by K-1 through K-8 would falsify the claim that
 these invariants are sufficient and would require strengthening them, not relaxing them.
 
+## Subsequent refinement
+
+**2026-09-10 — ADR-0010 rule 21 (approved).** Evaluation-epoch boundaries are identified by **commit-sequence
+watermarks** rather than wall-clock timestamps. Each epoch records its opening and closing `commit_sequence`,
+and epoch-membership checks compare sequences rather than clocks.
+
+This applies to the evaluation epoch throughout this ADR — rules 9 and 13, and invariants K-4 and K-9 … K-17.
+It makes those checks exact and independent of clock skew, regression and collision. **The invariants
+themselves are unchanged**; only the comparison becomes reliable. Nothing in this ADR's accepted decision or
+rationale is rewritten.
+
 ## Outcome
 
 Pending. No implementation, no evaluation corpus and no experiment exist.

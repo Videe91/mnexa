@@ -386,6 +386,16 @@ Evidence that a dependent was *silently* relied upon after its basis was refuted
 present — would falsify the claim that this policy is sufficient and would argue for Option 4's treatment of
 the refutation case specifically, once D-23 makes that case identifiable.
 
+## Subsequent refinement
+
+**2026-09-10 — ADR-0010 rule 21 (approved).** Where this ADR uses the evaluation-epoch concept, epoch
+boundaries are identified by **commit-sequence watermarks** rather than wall-clock timestamps.
+
+This applies **only** to rule 7 ("processing never occurs during an evaluation epoch") and invariant M-10,
+which are the two places this ADR relies on epoch semantics. It is deliberately **not** broadened to the
+freshness or staleness machinery, which carries no epoch meaning and is unaffected. Nothing in this ADR's
+accepted decision or rationale is rewritten.
+
 ## Outcome
 
 Pending. No implementation exists.

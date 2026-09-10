@@ -42,30 +42,31 @@ Six decisions settled: D-01, D-08, D-09, D-17, D-21, D-22 (ADR-0002 … ADR-0006
 
 **Nine decisions settled:** D-01, D-02, D-03, D-08, D-09, D-17, D-21, D-22, D-24 (ADR-0002 … ADR-0009).
 
-**Next blocker: D-05 — time and ordering semantics.** ADR-0010 proposed 2026-09-10, awaiting review.
+**Ten decisions settled:** D-01, D-02, D-03, D-05, D-08, D-09, D-17, D-21, D-22, D-24 (ADR-0002 … ADR-0010).
 
-Chosen by breadth of specification impact rather than register order. Blocking counts across the thirty
-specification elements:
+**Next blocker: D-10 — recall reproducibility.** No ADR drafted; awaiting owner direction.
 
-| Decision | Spec elements blocked | Notes |
-|---|---|---|
-| **D-05 time/ordering** | **9, 10, 13, 14, 15, 20, 21** | Every record and version carries time; capture cannot be specified without it |
-| D-18 failure/idempotency | 21, 22 | Shares element 21 with D-05; separable — idempotency is write identity, ordering is sequence |
-| D-13 activation trace | 20, 24 | Vision tension T-3 open |
-| D-12 linkage | 14, 15 | Unblocked by ADR-0008 |
-| D-10 recall reproducibility | 12, 13 | |
-| D-04 identity semantics | 6, 7 | Narrowed by ADR-0007/0009 |
-| D-06 provenance minimum | 17 | Largely settled already |
-| D-07 consolidation authority | 16 | Pre-shaped by ADR-0002; now also by ADR-0009 |
-| D-11 confidence | 19 | Vision tension T-2 open |
-| D-14 port surface | 23 | Better derived after the contracts it exposes |
-| D-15 memory-not-authority | 25 | |
-| D-16 personal scope | 11 | |
-| D-19 decay | 29 | Likely deferral |
-| D-20 domain generality | 2, 3 | |
+Chosen by specification impact plus upstream position, not register order:
 
-D-04 is *not* next despite being numerically next: ADR-0007 and ADR-0009 narrowed it considerably, and it
-blocks two elements to D-05's seven.
+| Decision | Spec elements blocked | Upstream of | Notes |
+|---|---|---|---|
+| **D-10 recall reproducibility** | **12, 13** | **D-12, D-13** | Holds the watermark carrier (ADR-0010 rule 12) and the level-2 activation boundary (rule 10) |
+| D-13 activation trace | 20, 24 | — | Close second; depends on D-10's output shape. T-3 open |
+| D-18 failure/idempotency | 10 (partly), 21, 22 | — | Gained sequencer durability and linearization from ADR-0010 |
+| D-12 linkage | 14, 15 | — | Fully unblocked; needs D-10's watermark carrier |
+| D-06 provenance minimum | 7 (partly), 17 | — | Largely settled already |
+| D-04 identity semantics | 6, 7 | — | Narrowed by ADR-0007/0009 |
+| D-07 consolidation authority | 16 | — | Pre-shaped by ADR-0002 and ADR-0009 |
+| D-14 port surface | 23 | — | Better derived after the contracts it exposes |
+| D-11 confidence | 19 | — | T-2 open |
+| D-16 personal scope | 11 | — | |
+| D-15 memory-not-authority | 25 | — | |
+| D-20 domain generality | 2, 3 | — | |
+| D-19 decay | 29 | — | Likely deferral |
+
+D-13 blocks the same number of elements and is arguably weightier — element 24 is the experiment's whole
+measurement surface. It is placed second because it depends on what recall produces: the activation trace
+records what recall surfaced, so its shape follows the recall contract rather than preceding it.
 
 **D-23 is deferred.** It is not required to write a correct v0 specification: ADR-0006 treats all
 supersessions uniformly, which is complete and safe, and classification would only refine signal quality.
@@ -146,7 +147,9 @@ whether entity resolution is reversible; whether identity may be assigned by a m
 
 **Tier:** D2
 **Vision:** 2.6, 6.4, 6.6
-**Status:** ADR-0010 proposed 2026-09-10; awaiting owner review. Constrained by ADR-0005 and ADR-0008, which fixed **commit sequence** as the
+**Status:** **SETTLED** — ADR-0010 accepted 2026-09-10 after three owner-directed amendments (`committed_at`
+added as a fourth concept; `commit_sequence` strengthened to visibility linearization; availability
+distinguished from cognitive use). Was constrained by ADR-0005 and ADR-0008, which fixed **commit sequence** as the
 admission-ordering primitive for both planes. That sharpens rather than answers D-05: three time axes now
 exist and their relationship is unspecified — *occurred-at* (when the event happened in the world),
 *recorded-at* (when MNEXA received it), and *commit sequence* (already settled). D-05 must settle the first
@@ -211,9 +214,15 @@ rule at specification level.
 
 **Tier:** D2 (D3 where it affects experimental validity)
 **Vision:** 5.3, 5.10; `.claude/rules/scientific-method.md`
-**Status:** pending. **Touched by ADR-0006** rule 6 (recall output must include a freshness determination) and
-by ADR-0010 (proposed), which supplies `AS_OF(N)` as the reproducibility primitive — a recall is reproducible
-if reproducible as of its watermark. D-10 must decide which record carries that watermark.
+**Status:** **NEXT BLOCKER.** Touched by ADR-0006 rule 6 (recall output must include a freshness
+determination) and by ADR-0010, which supplies `AS_OF(N)` as the reproducibility primitive — a recall is
+reproducible if reproducible as of its watermark.
+
+Blocks specification elements **12** (Context Frame contract) and **13** (Recall contract), two of the core
+loop contracts. Also **upstream of D-12 and D-13**: ADR-0010 rule 12 requires every decision to carry a
+knowledge watermark but leaves the carrier to D-10/D-12, and ADR-0010 rule 10 assigns the level-2
+presented/activated boundary jointly to D-10 and D-13. Neither can be specified while the recall contract's
+output shape is undecided.
 
 Whether recall must be deterministic given identical memory state and Context Frame. Nondeterministic
 recall makes controlled comparison noisier and makes a failed run non-reproducible.
@@ -248,10 +257,12 @@ arrives.
 
 **Tier:** D3 (scientific)
 **Vision:** 3.12, 3.39, 5.36–5.41
-**Status:** pending. **Partially settled by ADR-0006** rule 6 and M-8 (every object entering active cognition
-carries a freshness determination) and by ADR-0010 (proposed), which makes vision 5.40's *not activated* line
-computable: the knowledge watermark defines what was available but unused. The attribution question (T-3)
-remains fully open. **Vision tension — see Contradictions below.**
+**Status:** pending; follows D-10. **Partially settled by ADR-0006** rule 6/M-8 and by **ADR-0010 rule 10**,
+which fixes the three-level structure D-13 must implement: durably available (settled — `commit_sequence`),
+presented/activated (D-10 + D-13), actually used/attributed (D-13's attribution contract). Levels 2 and 3 must
+not collapse. ADR-0010 also makes vision 5.40's *not activated* line computable, since the watermark defines
+what was eligible but unused. The attribution question (T-3) remains fully open.
+**Vision tension — see Contradictions below.**
 
 The vision requires memory strength to depend on demonstrated usefulness, and requires recording what was
 *actually active* at decision time (5.40). It does not say how utility is attributed when several memories
@@ -301,8 +312,9 @@ enter memory. Must be locked before any experience is captured, not at benchmark
 **Tier:** D2
 **Vision:** 3.4, 9.7
 **Status:** pending. **Shaped** by ADR-0008 (commit is a two-phase admission for records carrying structural
-edges) and by ADR-0010 (proposed), which adds commit-sequencer durability across restarts and leaves open
-whether a failed commit consumes a sequence number — rule 7 permits gaps, so either answer is admissible.
+edges) and by ADR-0010, which adds commit-sequencer durability across restarts and the visibility
+linearization invariant (rule 9). Leaves open whether a failed commit consumes a sequence number — gaps are
+permitted, so either answer is admissible, but retroactive insertion beneath an exposed watermark is not.
 
 What happens on partial write, duplicate submission, and capture failure; whether a lost experience is
 allowed to fail silently. Idempotency is part of the durable contract if the capture port is retryable.

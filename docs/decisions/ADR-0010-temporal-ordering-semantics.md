@@ -1,6 +1,6 @@
 ---
 id: ADR-0010
-status: proposed
+status: accepted
 date: 2026-09-10
 scope: constitutional
 vision_refs:
@@ -16,6 +16,24 @@ supersedes: []
 **Tier: D3 (constitutional).** Requires explicit owner approval.
 
 Covers register entry **D-05**.
+
+**Approval:** accepted by owner 2026-09-10, following three owner-directed amendments made while the ADR was
+still `proposed`. The record below is as amended and approved.
+
+**Amendment history (all pre-acceptance, owner-directed):**
+
+1. **`committed_at` added as a fourth concept.** The original concluded that `recorded_at` plus
+   `commit_sequence` made a commit wall-clock unnecessary. That was wrong: a logical sequence carries
+   *ordering* information, not *elapsed time*, so capture-to-commit latency and the wall-clock age of an
+   interpretation were both unanswerable. — rules 6–7, R-1, R-6, R-17, R-22.
+2. **`commit_sequence` strengthened to visibility/linearization order.** The original specified monotonic
+   allocation, which permits a lower-numbered commit becoming visible after a higher one — retroactively
+   changing the meaning of an already-published `AS_OF(N)`. — rule 9, R-18, R-19.
+3. **Availability distinguished from cognitive use.** The original said commit order determines "what MNEXA
+   knew". It determines only what was **eligible**. Three levels — durably available, presented/activated,
+   actually used — must not collapse into one another. — rules 10–11, R-20, R-21.
+
+The epoch-watermark refinement (rule 21) was approved in the same review.
 
 ## Decision question
 
@@ -98,143 +116,179 @@ elements depend on; C is rejected on YAGNI, and remains reachable because B's fi
 
 ## Decision
 
-Sixteen rules.
+Twenty-one rules.
 
-### The three fields
+### The four temporal concepts
 
-1. **`occurred_at` — world/source time. Optional.** When the event's world time is unknown, the field is
-   **absent**. No value is fabricated.
+1. **`occurred_at` — world/source time. Optional.** Applies only where there is an external event-time
+   meaning. When world time is unknown the field is **absent**; no value is fabricated.
 
-2. **`occurred_at` carries a basis, and only two bases are admissible on the historical plane:**
+2. **`occurred_at` carries a basis, and only two are admissible on the historical plane:**
 
    | Basis | Meaning | What history establishes |
    |---|---|---|
    | `observed` | The trusted runtime directly observed the event time | That the runtime observed the event at T |
    | `asserted` | An external source supplied the time | That **source S reported event-time T** — not that the event objectively occurred at T |
 
-   An external timestamp appearing in a payload does **not** become an objectively true world-time assertion
-   by being recorded. The source identity is recorded alongside an `asserted` time.
+   **The basis must be resolvable, not merely labelled.** An `asserted` time identifies the source whose
+   timestamp claim is recorded; an `observed` time identifies the trusted observation basis. Existing
+   ExperienceRecord provenance may satisfy this without a further standalone field — the requirement is that
+   the source or observer can be resolved, not that a new field exists.
 
-3. **Inferred event time is interpretive and never historical.** A time derived by reasoning — from context,
-   from ordering, from a model — may exist only as an Interpretation citing the records it was inferred from.
-   It is never written to `occurred_at`.
+3. **Inferred event time is interpretive, never historical.** A time derived by reasoning may exist only as an
+   Interpretation citing the records it was inferred from.
 
-4. **`occurred_at` states its precision.** A single granularity qualifier (for example second, minute, hour,
-   day) accompanies the value, and no time is recorded at finer precision than its basis supports. This is one
-   enum, not an interval model — coarse precision simply yields no ordering under rule 15, rather than
-   requiring interval algebra.
+4. **`occurred_at` states its precision.** One granularity qualifier accompanies the value, and no time is
+   recorded at finer precision than its basis supports. This is an enum, not an interval model.
 
-5. **`recorded_at` — receipt time. Required.** A trusted MNEXA runtime wall-clock observation of when the
-   evidence entered the capture boundary. It supports ingestion-delay measurement, provenance, operational
-   debugging and latency analysis.
+5. **`recorded_at` — capture-boundary receipt time. Required on historical records.** A trusted runtime
+   wall-clock observation of when evidence entered the MNEXA capture boundary.
 
-6. **`recorded_at` is never an ordering primitive.** Wall clocks collide, skew and regress, and concurrent
-   events share timestamps. No preexistence check, no ordering decision and no epistemic determination may
-   read it. **No separate commit wall-clock field is introduced** — see rule 16 for why the operational need
-   it would serve is better met by commit sequence.
+6. **`committed_at` — durable-commit wall-clock time. Required on historical records and interpretive
+   versions.** A trusted runtime wall-clock observation of when the record or version became committed and
+   visible durable MNEXA state. This is operational and observability metadata, supporting:
 
-7. **`commit_sequence` — logical admission order. Required.** One monotonically strictly increasing sequence
-   for the v0 MNEXA memory namespace, spanning immutable commits in **both** the historical and interpretive
-   planes, so that:
+   - capture-to-commit latency (`committed_at` − `recorded_at`);
+   - approximate wall-clock age of an interpretation;
+   - operational debugging;
+   - consolidation timing and measurement.
 
-   ```text
-   source record committed at        #100
-   derived interpretation committed  #101
-   ```
+7. **Neither `recorded_at` nor `committed_at` is ever an ordering primitive.** Clock skew, regression, ties
+   and collisions must never override `commit_sequence` for epistemic replay or preexistence. **World-event
+   time is never inferred from `committed_at`.**
 
-   mechanically proves strict preexistence for ADR-0005 L-7 and ADR-0008 P-3. Values are never reused and
-   never reordered; gaps are permitted. **This is a single-namespace sequence, not a global or
-   civilization-wide one** — distributed and collective ordering is outside v0 and will require its own
-   decision when collective phases arrive.
-
-### What governs influence
-
-8. **Availability, not occurrence, determines influence.** Whether information could have influenced
-   cognition is determined solely by whether it was committed before the decision's cognitive boundary.
-   Given:
+8. **`commit_sequence` — authoritative logical ordering of durable state.** One sequence for the v0 MNEXA
+   memory namespace, spanning immutable commits in **both** planes, so that:
 
    ```text
-   10:00  event actually occurs
-   10:05  decision made
-   10:07  MNEXA receives evidence
-   10:08  evidence committed
+   source record committed        #100
+   derived interpretation         #101
    ```
 
-   a replay must **not** allow the 10:00 event to influence the 10:05 decision, however much earlier its
-   `occurred_at` is. This is a hard anti-hindsight invariant, not a default.
+   mechanically proves strict preexistence for ADR-0005 L-7 and ADR-0008 P-3. Namespace-local, **not** global
+   or civilization-wide; distributed ordering is outside v0.
 
-9. **Every decision carries a knowledge watermark.** A decision is associated with the commit sequence
-   defining what was durably available to it, so replay has a specific N. *Which record carries the watermark
-   — `ContextAssembled`, the decision record, or another — is D-10's and D-12's to decide; this ADR requires
-   only that one exist.*
+### Linearization
 
-10. **`AS_OF(N)`.** MNEXA must support reconstructing what durable intelligence was available as of commit
-    sequence N. That reconstruction excludes everything with `commit_sequence > N`, regardless of any earlier
-    `occurred_at`. This is an invariant on the answer, not a prescription for storage.
+9. **`commit_sequence` is visibility order, not allocation order.** A committed sequence number participates
+   in a stable durable-state linearization. This must be impossible:
+
+   ```text
+   A allocated #100, still uncommitted
+   B allocated #101, becomes visible          ← AS_OF(101) published
+   A later commits and becomes visible as #100 ← AS_OF(101) has changed
+   ```
+
+   **The invariant:** *once durable state through watermark N has been exposed as committed, no durable object
+   or version may later become newly visible with `commit_sequence ≤ N`.* Equivalently: **`AS_OF(N)` is
+   immutable once N is a published, visible watermark.**
+
+   Gaps are permitted. **Retroactive insertion beneath an exposed watermark is not.** The invariant spans both
+   planes, because ADR-0005's derivation preexistence relies on the same order.
+
+   *The implementation mechanism is not decided here.* Assigning sequence at commit linearization, holding the
+   visible watermark behind unresolved lower sequences, or any other mechanism satisfying the invariant is
+   admissible. D-18 may still decide whether failed commits consume sequence values.
+
+### Eligibility, activation and use
+
+10. **Three levels, never collapsed.**
+
+    | Level | Claim | Established by |
+    |---|---|---|
+    | **1 — Durably available** | The object was committed at or before the cognitive watermark | `commit_sequence` |
+    | **2 — Presented / activated** | It entered the relevant cognitive process | The historical cognition/activation trace, which **D-10 and D-13 will define** |
+    | **3 — Actually used / attributed** | It influenced the outcome | Whatever evidence the later attribution contract permits |
+
+    `commit_sequence` establishes **level 1 only**. It determines which durable intelligence was *eligible* to
+    influence cognition as of a watermark. It does **not** prove the object was retrieved, assembled into
+    context, activated, attended to, or used. **Level 2 does not imply level 3 either:** activation is not
+    proof of causal influence.
+
+    This separation is what later distinguishes *a useful memory existed and was eligible but recall failed to
+    surface it* — vision 5.38's retrieval regret — from *reasoning ignored information it actually saw*. Those
+    are different failures with different remedies, and collapsing the levels makes them indistinguishable.
+
+11. **Anti-hindsight.** Nothing committed after a decision's cognitive watermark is eligible to have influenced
+    it, however early its `occurred_at`. Given:
+
+    ```text
+    10:00  event actually occurs
+    10:05  decision made
+    10:07  MNEXA receives evidence
+    10:08  evidence committed
+    ```
+
+    replay must **not** treat the 10:00 event as available to the 10:05 decision. This is a hard invariant.
+
+12. **Every decision carries a knowledge watermark** — the commit sequence defining what was durably available
+    to it. *Which record carries it is D-10's and D-12's to decide; this ADR requires only that one exist.*
+
+13. **`AS_OF(N)`.** MNEXA must support reconstructing what durable intelligence was available as of commit
+    sequence N, excluding everything with `commit_sequence > N` regardless of earlier `occurred_at`. An
+    invariant on the answer, not a prescription for storage.
 
 ### Ordering discipline
 
-11. **Late and out-of-order arrival is permitted and normal.**
+14. **Late and out-of-order arrival is legal and normal.** `#200 occurred_at 14:00` followed by
+    `#201 occurred_at 12:00` is valid. Commit order states when MNEXA acquired durable access; it asserts
+    nothing about world-event order.
 
-    ```text
-    commit #200   occurred_at = 14:00
-    commit #201   occurred_at = 12:00
-    ```
+15. **`occurred_at` ordering implies nothing** — not causality, not knowledge availability, not decision
+    influence, not provenance ancestry. Vision 2.8's prohibition applies to all four, not only causation.
 
-    is valid; the second record simply arrived late. Commit order states when MNEXA acquired durable access to
-    information. It asserts nothing about world-event order.
+16. **Historical reference rules are unchanged by lateness.** ADR-0008 rules 4–5 stand: inline references only
+    to already-committed records, never forward. Where a relationship concerns a record not yet committed,
+    `RelationshipRecorded` establishes it later. Late arrival is the case that mechanism exists for.
 
-12. **`occurred_at` ordering implies nothing.** Earlier `occurred_at` does not imply causality, knowledge
-    availability, decision influence, or provenance ancestry. Vision 2.8's prohibition — `A happened before B`
-    must never silently become `A caused B` — applies to every one of these, not only to causation.
+17. **Timestamps are never mutated.** Corrections append under ADR-0002 rule 3 and ADR-0008's `correction_of`.
+    A "currently best temporal view" is a projection or interpretation over immutable history. No temporal
+    correction engine in v0.
 
-13. **Historical reference rules are unchanged by lateness.** ADR-0008 rules 4–5 stand: inline references
-    point only to already-committed records, and forward references are never permitted. If an event arrives
-    whose structural relationship concerns a record not yet committed, no inline edge is created; once both
-    exist, `RelationshipRecorded` establishes the relationship where admissible evidence supports it. Late
-    arrival is precisely the case that mechanism was built for.
-
-14. **Timestamps are never mutated.** If a source or runtime later establishes that a recorded event time was
-    wrong, the original record is preserved and the correction appended under ADR-0002 rule 3 and ADR-0008's
-    `correction_of`. A "currently best temporal view" is a **projection or interpretation** over immutable
-    history, never a rewrite. No temporal correction engine is built in v0.
-
-15. **Ties and uncertainty manufacture no order.** Identical `occurred_at` values produce no ordering between
-    records. Absent or coarse-precision world time produces no ordering. `commit_sequence` may order when
-    MNEXA learned of them without claiming that was their world order.
-
-### Consequential refinement
-
-16. **Epoch bounds are recorded as commit sequences.** ADR-0004's evaluation epoch and ADR-0006's revalidation
-    scheduling currently compare wall-clock timestamps to epoch boundaries. Recording each epoch's opening and
-    closing **commit sequence** makes those checks exact and removes their dependence on clock behaviour. The
-    invariants themselves are unchanged; only the comparison becomes reliable. *This refines accepted ADRs and
-    is surfaced here for approval rather than applied silently.*
+18. **Ties and uncertainty manufacture no order.** Identical, absent or coarse `occurred_at` produce no
+    ordering. `commit_sequence` may order when MNEXA learned of them without claiming world order.
 
 ### Interpretive-version timing
 
-Interpretive versions are epistemic artefacts, not world events, and are **not** given `occurred_at`.
+19. **Interpretive versions carry `committed_at` and `commit_sequence`, and no `occurred_at`.**
 
-| Question | Answer |
-|---|---|
-| When was it proposed? | Already carried by the historical production record — `ConsolidationProduced` — which the version cites. Not duplicated on the version |
-| When did it become established? | Its `commit_sequence` |
-| What is its ordering? | `commit_sequence`, as for everything else |
+    | Question | Answer |
+    |---|---|
+    | When did it become established durable state? | `committed_at` (wall-clock) and `commit_sequence` (order) |
+    | When was it proposed? | Already on the historical production record — `ConsolidationProduced` — which the version cites. Not duplicated |
 
-For **Episode** specifically, the *time covered by the episode* is derived on demand from the `occurred_at`
-values of the ExperienceRecords it groups. It is a **projection**, never a stored field, and it must never be
-confused with *the time the Episode interpretation was created*, which is its commit sequence.
+    An interpretation is not an event in the external world, and gains no `occurred_at` merely because
+    `committed_at` now exists. Where the interpretation's **content** contains an explicitly modelled temporal
+    claim, that claim lives inside its content and provenance — never as a version-level `occurred_at`, which
+    would pretend the interpretation itself occurred in the world.
+
+20. **Episode temporal extent is derived, never stored.** The *time covered by an episode* is a projection over
+    its member records' `occurred_at` values, and must never be confused with *the time the Episode
+    interpretation was created*, which is its `committed_at` and `commit_sequence`.
+
+### Approved refinement to accepted ADRs
+
+21. **Evaluation-epoch boundaries are identified by commit-sequence watermarks, not wall-clock timestamps.**
+    Each epoch records its opening and closing `commit_sequence`, making epoch-membership checks exact and
+    independent of clock behaviour.
+
+    Applied to **ADR-0004** (the evaluation epoch throughout: rules 9, 13 and invariants K-4, K-9 … K-17) and
+    to **ADR-0006** only where it genuinely uses the same epoch concept — rule 7 and M-10. It is **not**
+    broadened to ADR-0006's freshness or staleness semantics, which carry no epoch meaning.
+
+    Those ADRs' accepted history is not rewritten; the refinement is recorded here and noted in each.
 
 ### Invariants and how each is checked
 
 | ID | Invariant | How checked |
 |---|---|---|
-| R-1 | Every historical record carries `recorded_at` and `commit_sequence` | Schema constraint; assert both non-null on every record |
-| R-2 | `occurred_at`, when present, carries a basis and — for `asserted` — a source identity | Assert basis ∈ {observed, asserted}; assert source identity non-null when `asserted` |
+| R-1 | Every historical record carries `recorded_at`, `committed_at` and `commit_sequence` | Schema constraint; assert all three non-null on every record |
+| R-1b | Every interpretive version carries `committed_at` and `commit_sequence` | Schema constraint; assert both non-null on every version |
+| R-2 | `occurred_at`, when present, carries a basis whose source or observer resolves | Assert basis ∈ {observed, asserted}; resolve the asserting source (for `asserted`) or the trusted observation basis (for `observed`) via the record's provenance; assert resolution succeeds |
 | R-3 | No inferred world time on the historical plane | Assert no admissible basis denotes inference; assert inferred times exist only as Interpretations citing their evidence |
 | R-4 | No world time is recorded at finer precision than its basis supports | Assert a precision qualifier accompanies every `occurred_at`; assert the value carries no significant digits beyond it |
 | R-5 | `commit_sequence` is strictly increasing, total in the namespace, never reused or reordered | Assert strict monotonicity across all commits; assert no duplicate value; assert existing values are immutable |
-| R-6 | `recorded_at` never establishes ordering or preexistence | Assert no preexistence, ordering or epistemic code path reads `recorded_at` (extends ADR-0005 L-7, ADR-0008 P-3) |
+| R-6 | Neither `recorded_at` nor `committed_at` establishes ordering or preexistence | Assert no preexistence, ordering or epistemic code path reads either field (extends ADR-0005 L-7, ADR-0008 P-3) |
 | R-7 | `AS_OF(N)` excludes everything committed after N | Fixture with a late-arriving record whose `occurred_at` precedes N's world time; assert it is absent from `AS_OF(N)` |
 | R-8 | Decision replay sees only what its watermark admits | Assert replay of a decision resolves to its watermark N and that nothing with `commit_sequence > N` is visible |
 | R-9 | Every decision has a knowledge watermark | Assert a resolvable commit-sequence watermark exists for each decision record |
@@ -245,6 +299,13 @@ confused with *the time the Episode interpretation was created*, which is its co
 | R-14 | No causal, influence, ancestry or availability conclusion is derived from `occurred_at` | Assert no code path compares `occurred_at` to determine any of the four |
 | R-15 | `PredictionMade.occurred_at` is when the prediction was made | Assert the prediction horizon or target time is a payload field, not a record time field |
 | R-16 | Epoch boundaries are recorded as commit sequences | Assert each epoch record carries opening and closing `commit_sequence`; assert epoch-membership checks compare sequences, not wall clocks |
+| R-17 | `committed_at` is present and usable for elapsed-time measurement | Assert `committed_at` − `recorded_at` is computable per record and exported for observability |
+| R-18 | `AS_OF(N)` is immutable once N is exposed as a visible watermark | Snapshot `AS_OF(N)` at exposure; re-evaluate after subsequent commits; assert the result is byte-identical |
+| R-19 | No object becomes newly visible with `commit_sequence ≤` an already-exposed watermark | Fixture with a delayed lower-numbered commit; assert it either never becomes visible beneath the exposed watermark or the watermark was never exposed while it was unresolved |
+| R-20 | Availability is never treated as activation | Assert no code path infers that an object entered cognition from its being committed before the watermark |
+| R-21 | Activation is never treated as attributed use | Assert no code path infers causal influence from an activation record alone |
+| R-22 | World-event time is never inferred from `committed_at` | Assert no path populates or derives `occurred_at` from `committed_at` |
+| R-23 | Interpretive versions carry no `occurred_at`; temporal claims live in content | Assert no `occurred_at` field on interpretive versions; assert any modelled temporal claim resides in content/provenance |
 
 ## Evidence and rationale
 
@@ -258,20 +319,41 @@ and ADR-0008 rule 11 prevented for relation semantics. The pattern is now consis
 history records *that something was asserted*, never *that the assertion is true*. Rule 3 completes it by
 keeping inferred times off the plane entirely, since an inferred time is a conclusion, not an observation.
 
-**Rule 6 answers the question of whether receipt and commit wall-clock need separate concepts: they do not.**
-The operational uses of a commit wall-clock are latency measurement and boundary determination. The first is
-adequately served by `recorded_at` plus commit sequence. The second — deciding whether a commit falls inside
-an evaluation epoch — is better served by sequences than by clocks, which is what rule 16 proposes. Adding a
-third time field to serve a need that a sequence serves more reliably would be overloading the model rather
-than clarifying it.
+**On whether receipt and commit wall-clock need separate concepts: they do.** An earlier draft concluded they
+did not, reasoning that a commit wall-clock's uses were latency measurement and epoch-boundary determination,
+and that sequences served both. That conflated two different questions. Sequences do serve boundary
+determination better than clocks — rule 21 stands on that. But a logical sequence carries *ordering*
+information and no *elapsed time*: the interval between `#100` and `#101` may be a millisecond or a week, and
+nothing in the sequence distinguishes them. Capture-to-commit latency and the wall-clock age of an
+interpretation are therefore unanswerable without `committed_at`. Rule 6 adds it as observability metadata,
+and rule 7 keeps it firmly out of the ordering role where its clock behaviour would be dangerous.
 
-**Rule 8 is the load-bearing invariant of this ADR.** It is also the one most likely to be violated by
+**Rule 9 closes a gap that monotonic allocation leaves open.** Allocating sequence numbers in increasing order
+is not the same as committing in that order. If `#101` becomes visible while `#100` is still in flight, and a
+consumer observes `AS_OF(101)`, then `#100` landing afterwards changes what `AS_OF(101)` means — retroactively,
+and silently. Every reproducibility guarantee in ADR-0003 and ADR-0004 rests on replay answering the same
+question the same way, so a watermark whose contents can grow later is not a watermark. Stating the invariant
+at the level of *visibility* rather than allocation leaves the mechanism free while making the guarantee
+checkable (R-18, R-19).
+
+**Rule 11 is the load-bearing invariant of this ADR.** It is also the one most likely to be violated by
 accident, because the natural implementation of "what did we know then" is a query filtered by world time,
 and that query is wrong in a way that produces plausible results. A replay filtered on `occurred_at ≤ 10:05`
-would include the 10:00 event and produce a reconstruction in which the decision looks worse-informed or
-better-informed than it was. Rule 10's `AS_OF(N)` gives the correct query a name so it can be the default
-rather than the careful choice. R-7's fixture — a late record whose world time precedes the watermark —
-is the specific test that catches the wrong implementation.
+would include the 10:00 event and produce a reconstruction in which the decision looks better- or
+worse-informed than it was. Rule 13's `AS_OF(N)` gives the correct query a name so it becomes the default
+rather than the careful choice. R-7's fixture — a late record whose world time precedes the watermark — is the
+specific test that catches the wrong implementation.
+
+**Rule 10's three levels prevent a subtler version of the same error.** Establishing that an object was
+committed before a decision's watermark is easy and feels conclusive, and the tempting shorthand is to call
+that "MNEXA knew it". It is not: eligibility is a property of the store, while knowing is a property of what
+cognition actually received. Collapsing them would make every failure look like a reasoning failure, because
+anything eligible and unused would appear to have been ignored. Keeping level 1 separate from level 2 is what
+makes vision 5.38's retrieval regret expressible at all — the case where recall simply never surfaced an
+eligible memory is a *retrieval* defect, and conflating it with reasoning would send every investigation to
+the wrong subsystem. Keeping level 2 separate from level 3 matters for the same reason one hop further out:
+an activated memory that made no difference is not evidence of influence, and treating it as such would make
+attribution unfalsifiable.
 
 **Rule 12 generalises vision 2.8 further than the vision states it.** The vision warns against `before`
 becoming `caused`. The same illegitimate inference produces three other conclusions that matter here:
@@ -296,9 +378,9 @@ the commit sequencer needs a single serialization point in the v0 namespace, and
 restarts becomes a real requirement; consumers must use `AS_OF(N)` rather than time-filtered queries, which is
 a discipline the API should enforce rather than document.
 
-**Newly required:** a monotonic commit sequencer for the namespace; `occurred_at` basis and precision fields;
-source identity for asserted times; a knowledge watermark per decision; epoch records carrying commit-sequence
-bounds.
+**Newly required:** a commit sequencer providing stable visibility linearization for the namespace;
+`occurred_at` basis and precision fields with resolvable source or observer; `committed_at` on records and
+interpretive versions; a knowledge watermark per decision; epoch records carrying commit-sequence bounds.
 
 **Constrained or unblocked:**
 
@@ -316,8 +398,9 @@ bounds.
   they assert. Surfaced for approval, not applied silently.
 
 **No new durable decision was uncovered.** Every question this ADR raised resolved inside its own scope or
-landed on an already-registered decision. That is worth stating plainly: it is the first ADR in this sequence
-to add nothing to the register, which suggests the decision space is converging rather than expanding.
+landed on an already-registered decision — including after the three amendments, which added a field, a
+linearization invariant and an epistemic distinction without opening a new question. It is the first ADR in
+this sequence to add nothing to the register, which suggests the decision space is converging.
 
 **YAGNI check.** No accepted v0 invariant required distributed clocks, vector or Lamport clocks, cross-agent
 ordering, global sequencing, temporal logic, causal ordering or interval algebra. Strict preexistence
