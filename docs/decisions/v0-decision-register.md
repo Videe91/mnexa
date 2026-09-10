@@ -50,9 +50,30 @@ Six decisions settled: D-01, D-08, D-09, D-17, D-21, D-22 (ADR-0002 … ADR-0006
 **Fifteen decisions settled:** D-01, D-02, D-03, D-05, D-08, D-09, D-10, D-13, D-17, D-21, D-22, D-24, D-27,
 D-28, D-31 (ADR-0002 … ADR-0015).
 
-**Next blocker: D-12 — decision, prediction and outcome linkage.** ADR-0016 proposed 2026-09-10, awaiting
-review. The last unsettled link in the v0 cognitive loop; unblocks D-07 and satisfies D-30's binding deferral
-condition.
+**Sixteen decisions settled:** D-01, D-02, D-03, D-05, D-08, D-09, D-10, D-12, D-13, D-17, D-21, D-22, D-24,
+D-27, D-28, D-31 (ADR-0002 … ADR-0016). The v0 cognitive loop is now structurally complete except for
+consolidation.
+
+**Next blocker: D-18 — failure semantics, idempotency and ledger durability.** No ADR drafted; awaiting owner
+direction. Chosen over D-07 by specification impact: D-18 blocks elements 10, 21 and 22; D-07 blocks element 16
+alone. Every write path in the system converges on D-18.
+
+Comparison of the candidates:
+
+| Decision | Elements blocked | Note |
+|---|---|---|
+| **D-18 failure/idempotency/durability** | **10, 21, 22** | Convergence point for every write path; four accepted ADRs have added obligations to it |
+| D-04 identity semantics | 6, 7 (partly) | Entity identity format, issuance, resolution, merge/split; also governs the entity channel's yield |
+| D-20 domain generality | 2, 3 | Structural rule keeping the substrate domain-general |
+| D-07 consolidation authority | 16 | Unblocked by ADR-0016; last loop stage but one element |
+| D-06 provenance minimum | 17, 7 (partly) | Largely settled by ADR-0002, ADR-0006 M-20, ADR-0008 rule 10 |
+| D-11 confidence | 19 | T-2 open; constrained by three accepted ADRs |
+| D-16 personal scope | 11 | |
+| D-15 memory-not-authority | 25 | |
+| D-14 port surface | 23 | Better derived after the contracts it exposes |
+| D-19 decay | 29 | Likely deferral |
+
+**D-30 remains deferred.** No newly discovered dependency makes it unavoidable.
 
 **D-30 is deferred from v0** — see its entry for the assessment and the four conditions.
 
@@ -193,7 +214,7 @@ recoverability constitutional.
 
 **Tier:** D3 (constitutional)
 **Vision:** 3.41, 3.48 law 9, 10.21, 10.70 law 5
-**Status:** **UNBLOCKED by ADR-0016** (proposed), which supplies the raw historical structure consolidation
+**Status:** **UNBLOCKED by ADR-0016**, which supplies the raw historical structure consolidation
 needs — what was decided, under which context and watermark, what was executed, what outcome evidence appeared,
 which predictions were evaluated — while telling it none of which memory deserves credit, whether the decision
 was wise, how strongly an action caused an outcome, what to strengthen, or what should become a skill.
@@ -256,7 +277,9 @@ Where a confidence value comes from at t=0, given that the vision distrusts mode
 **Vision:** 2.7, 3.6, 6.19–6.23, 10.18
 **Status:** pending; **constrained** by ADR-0007. Decision, Prediction, Action and Outcome are historical
 event types, not canonical objects, so linkage must be expressed as references between records rather than
-as fields on a mutable object. **Status: ADR-0016 proposed 2026-09-10; awaiting owner review.**
+as fields on a mutable object. **Status: SETTLED** — ADR-0016 accepted 2026-09-10 after three owner-directed
+amendments (exact action execution boundary; prediction cognitive provenance; no transitive closure of
+structural edges).
 
 Was fully unblocked; Every dependency is settled:
 ADR-0008 supplies the structural edges (`outcome_for`, `execution_of`, `evaluates_prediction`); ADR-0010
@@ -372,10 +395,21 @@ enter memory. Must be locked before any experience is captured, not at benchmark
 
 **Tier:** D2
 **Vision:** 3.4, 9.7
-**Status:** pending. **Shaped** by ADR-0008 (commit is a two-phase admission for records carrying structural
-edges) and by ADR-0010, which adds commit-sequencer durability across restarts and the visibility
-linearization invariant (rule 9). Leaves open whether a failed commit consumes a sequence number — gaps are
-permitted, so either answer is admissible, but retroactive insertion beneath an exposed watermark is not.
+**Status:** **NEXT BLOCKER.** Every write path in the system now converges here.
+
+**Blocks specification elements 10** (experience capture contract cannot state what happens on capture
+failure), **21** (idempotency; ordering already settled by ADR-0010) and **22** (failure semantics) — three
+elements, more than any other open decision.
+
+**Accumulated dependencies:** ADR-0008 makes commit a two-phase admission for records carrying structural
+edges; ADR-0010 rule 9 adds the visibility-linearization invariant and sequencer durability across restarts;
+ADR-0011 and ADR-0014 add evidence records that must themselves be durably written; ADR-0016 adds per-attempt
+execution identity and retry semantics. Leaves open whether a failed commit consumes a sequence number — gaps
+are permitted so either answer is admissible, but retroactive insertion beneath an exposed watermark is not.
+
+**Scope boundary:** D-18 covers **MNEXA's own ledger write path** — partial write, duplicate submission,
+capture failure, sequencer durability. It does **not** cover coordination between an external side effect and
+the ledger, which is **D-33**.
 
 What happens on partial write, duplicate submission, and capture failure; whether a lost experience is
 allowed to fail silently. Idempotency is part of the durable contract if the capture port is retryable.
@@ -640,8 +674,8 @@ learning-from-use out of the recall path, so no v0 mechanism depends on attribut
 
 **Deferral conditions, which must hold:** (i) ADR-0014's trace preserves the evidence a later standard needs —
 **satisfied**; (ii) D-12 must record decision→outcome linkage so the raw material exists — **satisfied by
-ADR-0016** (proposed), whose rule 21 supplies the linked structure and whose X-22 keeps every causal field out
-of the historical plane; (iii) no v0 mechanism silently performs attribution — ADR-0014 and ADR-0016 both
+ADR-0016**, whose rule 21 supplies the linked structure, rule 23 forbids synthesising causal edges from paths,
+and X-22 keeps every causal field out of the historical plane; (iii) no v0 mechanism silently performs attribution — ADR-0014 and ADR-0016 both
 forbid it; (iv) v0 makes no per-memory utility claim.
 
 ADR-0014 forbids any `influence_score`, `causal_weight`, `credit` or `blame` field entering the historical
@@ -688,6 +722,24 @@ for derivations that genuinely disclose nothing about their sources.
 
 Interacts with **D-29** (derived revocation) and with vision 9.24–9.25 on memory taint. Both concern
 propagation across derivation, from different directions — revocation removes, authorization restricts.
+
+### D-33 — External side-effect evidence durability
+
+**Tier:** D2
+**Vision:** 10.18, 6.30
+**Status:** pending. **Discovered while amending ADR-0016; not decided there.**
+
+ADR-0016 rule 13d establishes that a missing `ActionExecuted` means missing evidence, never that no action
+occurred. It does not establish how MNEXA keeps durable evidence around a **real external side effect** when
+the process crashes between dispatch and commit, or when a retry re-executes an effect already performed.
+
+**Not covered by D-18.** D-18 owns MNEXA's own ledger write path — partial write, duplicate submission,
+capture failure, sequencer durability. The question here is coordination between an external effect and the
+ledger: a dual-commit problem across a boundary MNEXA does not control. A likely shape is recording dispatch
+intent before crossing the boundary, but that is a protocol decision, not a consequence of anything accepted.
+
+**Depends on D-18.** Whether v0 requires the guarantee depends on whether v0 agents perform side-effecting
+external actions; if they only read and answer, the exposure is minimal. That determination is the owner's.
 
 ---
 

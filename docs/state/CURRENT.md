@@ -2,9 +2,9 @@
 
 **Phase:** MNEXA v0 — specification phase, decision audit stage
 
-**Current milestone:** ADR-0002 … ADR-0015 accepted. `ADR-0016` proposes the decision, prediction, action and
-outcome evidence contract — the last unsettled link in the v0 cognitive loop. Specification remains
-**blocked** at that D3 approval boundary.
+**Current milestone:** ADR-0002 … ADR-0016 accepted. The v0 cognitive loop is structurally complete except for
+consolidation. Specification remains **blocked** on **D-18** (failure semantics, idempotency and ledger
+durability), which has no ADR drafted.
 
 **Branch:** `spec/mnexa-v0`
 
@@ -15,17 +15,18 @@ until the durable decisions it depends on are accepted.
 
 **Active implementation plan:** None.
 
-**Last completed artifact:** `ADR-0016` — **proposed** 2026-09-10. The register `docs/decisions/v0-decision-register.md` holds the inventory of D2/D3 decisions (D-01 … D-26) plus 5
+**Last completed artifact:** `ADR-0016` — **accepted** 2026-09-10 after three owner-directed amendments,
+carrying two approved refinements now recorded in ADR-0008. The register `docs/decisions/v0-decision-register.md` holds the inventory of D2/D3 decisions (D-01 … D-26) plus 5
 recorded vision tensions, one of which (T-1) ADR-0007 resolved.
 
 **Verification:** Documentation-only change. Verified by inspection: ADR-0002, ADR-0003 and ADR-0004 follow
-the template in `docs/decisions/README.md`; all 259 invariants (14 I-, 10 J-, 17 K-, 10 L-, 21 M-, 11 N-, 16 P-,
-15 Q-, 24 R-, 25 S-, 14 T-, 13 U-, 28 V-, 19 W-, 22 X-) carry stated mechanical checks; no placeholder text remains; register entries carry tier classification and vision
+the template in `docs/decisions/README.md`; all 267 invariants (14 I-, 10 J-, 17 K-, 10 L-, 21 M-, 11 N-, 16 P-,
+15 Q-, 24 R-, 25 S-, 14 T-, 13 U-, 28 V-, 19 W-, 30 X-) carry stated mechanical checks; no placeholder text remains; register entries carry tier classification and vision
 references; no production code, tests, specification, benchmark harness or plan were created.
 
-**Open D2/D3 decisions:** 32 recorded in `docs/decisions/v0-decision-register.md` (D-01 … D-32); D-01, D-02,
-D-03, D-05, D-08, D-09, D-10, D-13, D-17, D-21, D-22, D-24, D-27, D-28 and D-31 are settled, 17 remain open —
-of which D-19, D-23, D-25 and **D-30** are deferred.
+**Open D2/D3 decisions:** 33 recorded in `docs/decisions/v0-decision-register.md` (D-01 … D-33); D-01, D-02,
+D-03, D-05, D-08, D-09, D-10, D-12, D-13, D-17, D-21, D-22, D-24, D-27, D-28 and D-31 are settled, 17 remain
+open — of which D-19, D-23, D-25 and **D-30** are deferred.
 
 - `ADR-0002` — experience/interpretation boundary and historical immutability — **accepted**. Settles D-01;
   partially settles D-06; pre-shapes D-07 and D-13.
@@ -67,10 +68,16 @@ of which D-19, D-23, D-25 and **D-30** are deferred.
 - `ADR-0015` — context measurement basis — **accepted**. Settles D-31. Compound standard with exactly one
   normative preflight basis, the pinned Context Measurement Profile; memory-contributed context defined over
   presented model-visible material; divergence measured per treatment, never assumed to cancel.
-- `ADR-0016` — decision, prediction, action and outcome evidence (D-12) — **proposed, D3, awaiting owner
-  review**. Four event kinds with explicit structural links and no cardinality fiction; absence of outcome is
-  absence of evidence, never failure. Carries one proposed refinement to ADR-0008 (`decided_from`).
-  **Unblocks D-07.**
+- `ADR-0016` — decision, prediction, action and outcome evidence — **accepted**. Settles D-12. Four event
+  kinds; the action boundary is dispatch, not attempt; absence of outcome or action is absence of evidence,
+  never failure; structural edges have no transitive closure. Added `decided_from` and
+  `produced_from_context` to ADR-0008, recorded there under *Subsequent refinements*. **Unblocked D-07** and
+  satisfied D-30's binding deferral condition.
+- **D-18 (failure semantics, idempotency and ledger durability) is the next blocker** — chosen over D-07 by
+  specification impact: D-18 blocks elements 10, 21 and 22; D-07 blocks element 16 alone.
+- D-33 (external side-effect evidence durability) was discovered while amending ADR-0016. **Not covered by
+  D-18**, which owns MNEXA's own ledger write path; D-33 is the dual-commit problem across an external
+  boundary. Depends on D-18.
 - **D-30 (credit attribution) is DEFERRED from v0** under four stated conditions — see its register entry. The
   binding one: D-12 must record decision→outcome linkage so a later standard has raw material.
 - D-32 (trace authorization label propagation) minimum invariant is in force; mechanism registered not
@@ -84,12 +91,13 @@ of which D-19, D-23, D-25 and **D-30** are deferred.
   for a correct v0 spec.
 - Remaining after D-05: D-04, D-06, D-07, D-10 … D-16, D-18 … D-20, D-23, D-25, D-26.
 
-**Known blockers:** `ADR-0016` requires explicit owner approval, including its proposed `decided_from`
-extension to ADR-0008. Per `.claude/rules/decisions.md`, work does
+**Known blockers:** D-18 requires an accepted ADR before the experience-capture, idempotency and failure
+elements may be written. Per `.claude/rules/decisions.md`, work does
 not proceed past an unapproved D3 boundary. The v0 specification additionally awaits the remaining
 domain-model decisions.
 
 **Experiments in progress:** None. No benchmark contract exists.
 
-**Next approved action:** Owner reviews `ADR-0016`. Do not write MNEXA production code, the benchmark
+**Next approved action:** Surface **D-18** (failure semantics, idempotency and ledger durability) as a
+proposed ADR, on owner direction. Do not write MNEXA production code, the benchmark
 harness, the v0 specification, or an implementation plan.

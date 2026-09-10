@@ -332,6 +332,22 @@ Evidence that an interpretive claim entered the historical plane *despite* P-1 t
 structural-looking edge type whose real meaning was causal — would falsify the claim that a vocabulary
 allowlist is sufficient, and would argue for per-edge provenance of how the correlation was established.
 
+## Subsequent refinements
+
+The provisional structural vocabulary of rule 2 has been extended by later accepted ADRs, under rule 2's
+admission test and rule 3's prohibitions. The original decision and rationale are unchanged.
+
+| Relation | Added by | Precise meaning |
+|---|---|---|
+| `assembled_from` | ADR-0014 rule 20 | This `ContextAssembled` was assembled from these already-committed `RecallPerformed` and live-input records |
+| `decided_from` | ADR-0016 rule 7 | This exact `ContextAssembled` record supplied the model-visible input associated with this committed decision operation |
+| `produced_from_context` | ADR-0016 rule 9b | This historical output was produced from this specific supplied context, by machine-verifiable request/response correlation |
+
+All three are backward-only (rules 4–5), admitted only on machine-verifiable correlation evidence (rule 2), and
+carry no truth import (rule 11). **ADR-0016 rule 23 additionally establishes that structural edges have no
+automatic transitive closure**: a path through admitted edges is evidence that those edges exist, never a
+newly admitted relationship and never a causal claim.
+
 ## Outcome
 
 Pending. No implementation exists.
