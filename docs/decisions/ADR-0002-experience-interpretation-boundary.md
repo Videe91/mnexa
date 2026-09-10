@@ -1,6 +1,6 @@
 ---
 id: ADR-0002
-status: proposed
+status: accepted
 date: 2026-09-10
 scope: constitutional
 vision_refs:
@@ -17,11 +17,19 @@ supersedes: []
 
 **Tier: D3 (constitutional). Requires explicit owner approval.**
 
-**Amendment history:** revised 2026-09-10 on owner direction, before acceptance, in two respects: the
-treatment of model-authored content in the historical plane (§Decision 8–10), and the replacement of a
-blanket prohibition on historical→interpretive references with a version-pinning rule (§Decision 5–6).
-Rationale for both changes is recorded under *Evidence and rationale*. No accepted decision was rewritten;
-this ADR has not yet been accepted.
+**Approval:** accepted by owner 2026-09-10, following three owner-directed amendments made while the ADR
+was still `proposed`. The decision history below is the record as amended and approved; no previously
+accepted decision was rewritten, as this ADR had not been accepted before these amendments.
+
+**Amendment history (all pre-acceptance, owner-directed):**
+
+1. Treatment of model-authored content in the historical plane — §Decision rules 8–10, invariants I-2/I-3/I-4.
+2. Blanket prohibition on historical→interpretive references replaced by version pinning — §Decision rules
+   5–6, invariants I-5/I-6/I-7/I-8.
+3. Direct-citation requirement replaced by transitive grounded-provenance rule — §Decision rule 11,
+   invariants I-9a/I-9b/I-9c/I-12.
+
+Rationale for each is recorded under *Evidence and rationale*.
 
 ## Decision question
 
@@ -164,6 +172,17 @@ Rules 8–10 give the precise reading of "models cannot write history": models m
 truth, but their productions are **recordable** as historical fact. `Model X produced decision D at time T`
 is historical. `Claim C inside D is true` is interpretive unless independently grounded.
 
+### Grounding and ancestry (amended)
+
+11. **No grounded knowledge without ancestry.** Every interpretive object carries an explicit epistemic
+    status. If that status is **grounded**, the object must have a resolvable provenance path that
+    terminates in at least one historical record. The path may be **transitive** — a principle may derive
+    from patterns which derive from episodes — so a higher-order abstraction need not directly cite raw
+    historical records, and the evidence graph is not duplicated at every level. An interpretive object with
+    no historical ancestry is permitted, but only if explicitly classified **ungrounded / hypothetical** (or
+    an equivalent clearly non-grounded status). Such an object must not be promoted, represented, or
+    consumed as grounded knowledge until historical ancestry exists.
+
 ### Invariants and how each is checked
 
 | ID | Invariant | How checked |
@@ -176,9 +195,12 @@ is historical. `Claim C inside D is true` is interpretive unless independently g
 | I-6 | Interpretive versions referenced by history are immutable and retained | Recompute version content hash; assert every referenced version resolves for as long as the referencing record exists |
 | I-7 | Supersession never mutates a prior version | Capture prior-version hash before and after a supersede operation; assert unchanged |
 | I-8 | History→interpretation edges carry only usage/activation types | Edge-type allowlist check |
-| I-9 | Every interpretive object cites ≥1 historical record | Schema constraint plus graph check for orphaned interpretations |
+| I-9a | Every interpretive object with epistemic status `grounded` has a provenance path terminating in ≥1 historical record | Traverse derivation edges from the object; assert traversal reaches the historical plane |
+| I-9b | Every interpretive object with no historical ancestry carries an explicitly non-grounded status | For each object whose traversal reaches no historical record, assert status ∈ {ungrounded, hypothetical} |
+| I-9c | No non-grounded object is promoted or consumed as grounded knowledge | Assert no grounded-knowledge consumer path admits an object whose status is non-grounded; assert promotion requires status `grounded` |
 | I-10 | Superseded versions remain retrievable | Fetch-by-version across a supersession chain |
 | I-11 | The historical write port exposes no update or delete | Interface test asserting absence of those operations |
+| I-12 | The provenance graph is resolvable and acyclic, so traversal terminates | Assert every derivation edge resolves to an existing object; assert no cycles via topological sort |
 
 These are stated here rather than deferred to the spec because the standing rules treat an invariant
 without a stated check as not an invariant.
@@ -232,6 +254,30 @@ read attributed claims as facts.
 This also pre-shapes D-07 (consolidation authority) usefully: a consolidation model's output is an
 attributed production recorded historically, and the *proposal* it represents is interpretive. Author and
 judge stay separate (10.21) without needing a second agent in v0.
+
+### Why direct citation was too strong
+
+The first draft required every interpretive object to cite at least one historical record directly. That
+rule conflates two different things: *having evidence* and *storing evidence locally*.
+
+The vision's evidence spine (3.20) is explicitly a tree — a principle cites patterns, which cite episodes —
+and 3.19 describes exactly this layering, with 3.46 requiring the chain remain traversable
+`principle → patterns → episodes → raw experience`. Requiring direct citation at every level would force
+each abstraction to re-enumerate the full evidence set beneath it, duplicating the graph, growing
+super-linearly with abstraction height, and creating many places where the same evidence set can drift out
+of agreement. Transitive traversal gives the same guarantee — *why do we believe this* is always answerable
+— at a fraction of the cost.
+
+The amendment also fixes a real expressiveness gap. Under direct citation there was no legal way to
+represent a hypothesis before its evidence arrives, yet the vision requires exactly that: 3.9 has MNEXA
+generating candidate interpretations at confidence 0.42, 3.22 permits competing hypotheses to coexist, and
+2.19's promotion ladder starts at HYPOTHESIS below CANDIDATE. Rule 11 makes such objects representable
+while I-9b and I-9c prevent them from being mistaken for knowledge — the epistemic status is what carries
+the distinction, rather than the presence or absence of a citation.
+
+I-12 is included because rule 11 is otherwise not mechanically checkable: "traversal must terminate"
+presupposes the provenance graph is resolvable and acyclic. Without that guarantee a cyclic derivation
+(P derived from Q, Q derived from P) would either hang the check or falsely report no ancestry.
 
 ## Consequences
 

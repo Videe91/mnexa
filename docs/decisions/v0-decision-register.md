@@ -63,7 +63,7 @@ D-16 / D-18 / D-19 / D-20 scope + durability   [mostly deferrals; low branching 
 
 **Tier:** D3 (constitutional)
 **Vision:** 2.2, 3.4, 3.13, 5.40, 9.11, 10.7, 10.70 law 2
-**Status:** ADR-0002 proposed (amended 2026-09-10 on owner direction; awaiting acceptance)
+**Status:** **SETTLED** — ADR-0002 accepted 2026-09-10 after three owner-directed amendments.
 
 The vision states the separation is constitutional but does not fix *where the line falls* for concrete
 v0 objects, at what granularity a historical record is immutable, or what "immutable" obligates
@@ -133,7 +133,7 @@ single-agent v0 without violating the law — and what must remain a proposal?
 
 **Tier:** D3 (scientific / benchmark methodology)
 **Vision:** 3.42, 10.41; `.claude/rules/scientific-method.md`
-**Status:** pending; queued next. Proposed to share one ADR with D-09 (resource parity).
+**Status:** ADR-0003 proposed (with D-09); awaiting owner review.
 
 If consolidation is performed by a model stronger than the frozen model under test, condition C's gain may
 come from the consolidation model's intelligence rather than from accumulated experience. The thesis claim
@@ -144,7 +144,7 @@ addresses the confound this creates for Grand Proof 1 (10.41).
 
 **Tier:** D3 (scientific / benchmark methodology)
 **Vision:** 10.41; `.claude/rules/scientific-method.md`
-**Status:** pending; queued next. Proposed to share one ADR with D-08 (resource parity).
+**Status:** ADR-0003 proposed (with D-08); awaiting owner review.
 
 If MNEXA's recall path may itself call a model at decision time, condition C consumes more inference
 compute than A and B, and any improvement is confounded with extra compute. Requires an explicit parity
@@ -220,8 +220,8 @@ How v0 structurally guarantees single-agent scope so that later L2+ scopes exten
 
 **Tier:** D3 (scientific)
 **Vision:** 10.59; `.claude/rules/scientific-method.md`
-**Status:** pending; queued next. Proposed as its own ADR (hidden-evaluation isolation): different threat
-model, different enforcement point, independently revisable.
+**Status:** pending; surfaces after ADR-0003 resolves. Own ADR (hidden-evaluation isolation): different
+threat model, different enforcement point, independently revisable.
 
 What MNEXA is permitted to ingest, and the structural guarantee that hidden evaluation instances cannot
 enter memory. Must be locked before any experience is captured, not at benchmark time.
@@ -253,6 +253,27 @@ without a migration.
 
 The structural rule that keeps the substrate domain-general while the first experimental domain is
 coding/debugging. Without a stated rule, coding-specific structure leaks in as "obvious".
+
+### D-21 — Version pinning of interpretive-to-interpretive derivation edges
+
+**Tier:** D2
+**Vision:** 3.20, 3.46, 3.21
+**Status:** pending. **Discovered while amending ADR-0002; not decided there.**
+
+ADR-0002 I-5 pins historical→interpretive references to immutable versions, and rule 11 permits transitive
+provenance through interpretive→interpretive derivation edges. It does not say whether those derivation
+edges are themselves version-pinned.
+
+If they float, supersession silently rewrites what an abstraction was derived from: Principle P derived from
+Pattern X v1 would appear to derive from X v2 after revision, even though P's reasoning never saw v2. That
+breaks the evidence spine's meaning and makes revalidation-on-contradiction (3.21) unable to identify which
+abstractions actually rest on the contradicted version.
+
+If they are pinned, abstractions do not automatically benefit from improvements to their supporting
+patterns, and something must decide when to re-derive.
+
+Not decided in ADR-0002 because the owner amendment addressed grounding, not edge mutability, and deciding
+it silently would have expanded the approved decision space.
 
 ---
 
