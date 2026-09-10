@@ -44,13 +44,11 @@ Six decisions settled: D-01, D-08, D-09, D-17, D-21, D-22 (ADR-0002 … ADR-0006
 
 **Ten decisions settled:** D-01, D-02, D-03, D-05, D-08, D-09, D-17, D-21, D-22, D-24 (ADR-0002 … ADR-0010).
 
-**Twelve decisions settled:** D-01, D-02, D-03, D-05, D-08, D-09, D-10, D-17, D-21, D-22, D-24, D-27
-(ADR-0002 … ADR-0012).
+**Thirteen decisions settled:** D-01, D-02, D-03, D-05, D-08, D-09, D-10, D-17, D-21, D-22, D-24, D-27, D-28
+(ADR-0002 … ADR-0013).
 
-**Next blocker: D-28 — cognitive-cycle knowledge snapshot scope.** ADR-0013 proposed 2026-09-10, awaiting
-review. Confirmed by analysis to block D-13's decision-level regret computation; see the D-28 entry.
-
-**D-13 is next after D-28.**
+**Next blocker: D-13 (narrowed) — activation and context evidence.** Recommended for split; no ADR drafted,
+awaiting owner direction on the split before drafting. Credit attribution moves to **D-30**.
 
 Earlier blocking analysis, retained for reference:
 
@@ -257,7 +255,41 @@ arrives.
 
 **Tier:** D3 (scientific)
 **Vision:** 3.12, 3.39, 5.36–5.41
-**Status:** blocked on D-28 (ADR-0013 proposed) for decision-level regret; otherwise **unblocked by ADR-0011**,
+**Status:** **UNBLOCKED** — D-28 settled by ADR-0013. **Recommended for split** — see below. As narrowed, D-13
+covers activation and context evidence only; credit attribution moves to **D-30**.
+
+**Split analysis (2026-09-10).** D-13 as registered contains two decisions of different kinds:
+
+| | Question | Kind |
+|---|---|---|
+| **A — activation/context evidence** | What was selected, suppressed, assembled and presented? | Historical observability |
+| **B — credit attribution** | What evidence licenses claiming an activated memory contributed to an outcome? | Epistemic inference |
+
+They are separable, and the dependency runs one way: **B needs A** (attribution requires knowing what was
+presented), while **A does not need B** (a trace contract is fully specifiable from ADR-0011's returned set plus
+selection decisions). One-way dependency with different decision kinds is the standard case for splitting.
+
+Two further reasons: **T-3** — the vision tension about distributing credit across several simultaneously
+active memories — belongs entirely to B, so A can be settled without touching an unresolved tension. And
+specification element 20 requires a trace *"required for later utility measurement"*, which maps exactly onto
+A recording what B will later need, rather than onto performing attribution in v0.
+
+Bundling them would let A's tractable observability decisions be held hostage to B's genuinely hard epistemic
+question, and would risk B being decided by default inside A.
+
+**The chain that must be preserved, with no inference across the marked boundaries:**
+
+```text
+DURABLY ELIGIBLE  →  RETURNED  →  SELECTED  →  PRESENTED/ACTIVATED  →  DECISION  →  OUTCOME
+   ADR-0010/13       ADR-0011        D-13          D-13                 D-12        D-12
+                                                        ╳ no inference PRESENTED → CAUSED DECISION
+                                                        ╳ no inference DECISION → CAUSED OUTCOME
+```
+
+Both crossings require an explicit attribution standard, which is **D-30**.
+
+**Original scope, retained for reference:** what the activation/usage trace must record and how utility is
+attributed. **Partially settled by ADR-0006** rule 6/M-8, by **ADR-0010 rule 10**, and by **ADR-0011**,
 which supplies its input: the returned, version-pinned set
 with presented freshness, plus the retrieval-regret boundary-one computation. D-13 owns
 presented/activated/suppressed and attribution. **Partially settled by ADR-0006** rule 6/M-8 and by
@@ -521,7 +553,9 @@ this decision" answerable only per-recall rather than per-decision.
 Inside an evaluation epoch the question cannot arise, since ADR-0004 rule 9 freezes memory. Outside one — during
 the experience and consolidation phases — it can.
 
-**Status update:** ADR-0013 proposed 2026-09-10; awaiting owner review.
+**Status:** **SETTLED** — ADR-0013 accepted 2026-09-10 after three owner-directed amendments (watermark
+freezes persistent intelligence not live input; arriving commits do not force a new cycle; the snapshot is
+epistemic, not an authorization freeze).
 
 **Blocking analysis (performed 2026-09-10):** D-28 **does** block D-13, though not through D-13's data model.
 An activation record can cite its recall and that recall's watermark under any policy. What breaks is D-13's
@@ -534,6 +568,43 @@ Did **not** block D-27: channel choice is unaffected by how many recalls a cycle
 own N regardless.
 
 Not decided in ADR-0011 because that ADR's scope was a single recall operation's evidence contract.
+
+### D-29 — Authorization and revocation temporal semantics
+
+**Tier:** D3 (security / privacy)
+**Vision:** 9.43, 9.44, 9.45, 9.48
+**Status:** pending. **Discovered while amending ADR-0013; minimum invariant stated there, mechanism not
+designed.**
+
+ADR-0013 rule 8 establishes the minimum: `AS_OF(N)` is an epistemic watermark, not an authorization freeze.
+Current authorization may restrict a pinned cycle — removing access, returning permission-limited or
+incomplete results, or aborting the cycle — and may **never** inject post-N knowledge into the view, rewrite
+what was available at N, or imply revoked content never existed.
+
+Unresolved: how revocation propagates to knowledge **derived** from revoked evidence (vision 9.48's derived
+forgetting), what the blast radius is (9.44), and how dependent interpretations are re-evaluated (9.45).
+Interacts with **D-19** (decay and forgetting) and with ADR-0005's retention obligations.
+
+Likely mostly beyond v0's stated non-goals, but the minimum invariant is required now and is in force.
+
+### D-30 — Outcome and causal credit attribution standard
+
+**Tier:** D3 (scientific / epistemic)
+**Vision:** 3.12, 3.39, 5.36–5.39, 6.45
+**Status:** pending. **Split out of D-13 on 2026-09-10 — see the D-13 entry for the analysis.**
+
+What evidence licenses MNEXA to claim that a particular activated memory contributed to a success or failure.
+
+Owns **tension T-3**: law 6 (3.48) requires useful recall to strengthen memory and harmful recall to weaken it,
+and 5.40 requires recording what was active, but no vision section gives a rule for distributing credit when
+several memories were active and the outcome was good. Sections 5.37–5.39 assume utility "can eventually be
+inferred from outcomes" at a scale v0 will not reach.
+
+Owns both prohibited inferences in the D-13 chain: `PRESENTED → CAUSED DECISION` and
+`DECISION → CAUSED OUTCOME`. Neither may be asserted without a standard this decision supplies.
+
+Depends on D-13 (needs the activation trace as input). Likely minimal or deferred in v0, with D-13 obliged to
+preserve whatever preconditions a later standard will require.
 
 ---
 
@@ -569,7 +640,7 @@ Law 6 (3.48) requires useful recall to strengthen memory and harmful recall to w
 requires recording which memories were active at a decision. But when eight memories are active and the
 outcome is good, the vision gives no rule for distributing credit. Sections 5.37–5.39 assume utility "can
 eventually be inferred from outcomes" at a scale v0 will not reach. v0 needs either a stated attribution
-rule or an explicit deferral that still records enough to attribute later. → **D-13**
+rule or an explicit deferral that still records enough to attribute later. → **D-30** (split out of D-13)
 
 ### T-4 — Consolidation model choice is unconstrained but experimentally load-bearing
 

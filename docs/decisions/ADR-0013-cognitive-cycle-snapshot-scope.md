@@ -1,6 +1,6 @@
 ---
 id: ADR-0013
-status: proposed
+status: accepted
 date: 2026-09-10
 scope: constitutional
 vision_refs:
@@ -16,6 +16,23 @@ supersedes: []
 **Tier: D3 (constitutional).** Requires explicit owner approval.
 
 Covers register entry **D-28**.
+
+**Approval:** accepted by owner 2026-09-10, following three owner-directed amendments made while the ADR was
+still `proposed`. The record below is as amended and approved.
+
+**Amendment history (all pre-acceptance, owner-directed):**
+
+1. **The watermark freezes persistent MNEXA intelligence, not live working input.** The original stated only
+   that within-cycle captures need not be recallable, framing a limitation rather than the positive
+   distinction: live task evidence may evolve during a cycle and legitimately influence it. — rules 6, 6a–6c,
+   U-9, U-10.
+2. **Arriving commits do not force a new cycle.** The original's "needing newer state means a new cycle" reads
+   as though later commits invalidate an in-flight cycle. They do not — they are simply invisible. Only
+   *choosing to consume* post-N durable intelligence requires ending the cycle. Evidence the cycle itself
+   emits is likewise not recallable by it. — rules 5, 5a–5b, U-11, U-12.
+3. **The snapshot is epistemic, not an authorization freeze.** The original said nothing about revocation.
+   Current authorization may further restrict a pinned cycle and must never inject knowledge into it. — rule 8,
+   U-13, and registered dependency **D-29**.
 
 ## Decision question
 
@@ -132,18 +149,93 @@ Seven rules.
    the same view, so *available to this decision* is a single well-defined set and decision-level retrieval
    regret needs no per-recall caveat.
 
-5. **Needing newer state means a new cycle.** A cycle that must observe state committed after N terminates;
-   a new cycle begins with a new watermark. There is no re-anchoring within a cycle. A decision made after
-   observing new state *is* a different decision, and requiring a new cycle makes that explicit rather than
-   implicit.
+5. **Later commits do not invalidate an in-flight cycle.** Durable commits arriving after N do **not**
+   automatically restart, invalidate or terminate a running cycle. They are simply invisible to its
+   persistent-memory reads:
 
-6. **Within-cycle observations are not required to be recallable within that cycle.** Records captured during a
-   cycle commit normally and become eligible to *later* cycles. Working context (L0) carries what the cycle
-   itself has just observed; MNEXA recall serves prior experience.
+   ```text
+   C1 binds AS_OF(500)
+     … #501, #502, #503 commit while C1 runs …
+   C1 continues operating against AS_OF(500) for its entire lifetime
+   ```
 
-7. **Every `RecallPerformed` in a cycle records the cycle's watermark.** ADR-0011 rule 3b's distinction stands
-   unchanged: each record's own `commit_sequence` differs from N and from the other records' sequences, and is
-   never mistaken for the watermark.
+5a. **Only *choosing to consume* post-N durable intelligence requires a new cycle.** If cognition decides it
+   needs durable MNEXA intelligence committed after N, it must first end the current cycle and begin a new one
+   with a newly bound watermark. There is no in-place watermark advancement and no re-anchoring:
+
+   ```text
+   end C1 (AS_OF 500)  →  start C2 (AS_OF N₂)
+   ```
+
+   A decision made after observing new durable state *is* a different decision, and requiring a new cycle makes
+   that explicit rather than implicit.
+
+5b. **A cycle's own evidence is not recallable by that cycle.** `RecallPerformed`, `ContextAssembled`,
+   `MemoryActivated` and similar records emitted by C1 commit at sequences greater than C1's watermark. They
+   are legitimate history and become eligible to later cycles, but they are **not** thereby newly recallable by
+   C1. Without this, a cycle's own trace would feed back into its persistent-knowledge view and destabilise it.
+
+### Persistent knowledge versus live working input
+
+6. **The watermark governs durable MNEXA intelligence only.** `AS_OF(N)` freezes what the cycle may *recall*.
+   It does **not** require the live task, environment or working context to remain static.
+
+6a. **Live evidence may arrive during a cycle and influence it.** User input, tool results, environment
+   observations, external API responses and other evidence delivered directly to the current cognitive process
+   may legitimately affect the cycle without violating its watermark. The distinction is explicit:
+
+   | | Governed by |
+   |---|---|
+   | **Persistent / recallable MNEXA intelligence** | `AS_OF(N)` — frozen for the cycle |
+   | **Live / working cycle input** | May evolve during the cycle |
+
+6b. **The same information may not re-enter through recall.** If live evidence is also durably committed to
+   MNEXA after N, the cycle must **not** subsequently consume that new durable commit *through recall* while
+   claiming `AS_OF(N)`. It may use the information because it was directly present in its live working context.
+   Using what was handed to you is not the same act as recalling a newly committed `ExperienceRecord`.
+
+6c. **The distinction must remain recoverable from the trace.** Later cognition evidence must preserve enough
+   to distinguish *the agent knew this because it was supplied live* from *the agent knew this because MNEXA
+   recalled persistent intelligence*. **The trace design belongs to D-13**; this ADR requires only that the
+   distinction not be lost.
+
+### Cycle semantics and identity
+
+7. **The watermark belongs to the cycle, not to individual recalls.** Every `RecallPerformed` inside the cycle
+   carries or resolves the same cycle watermark, and the final `DecisionMade` or `PredictionMade` evidence is
+   attributable to that same watermark. ADR-0011 rule 3b stands unchanged: each record's own `commit_sequence`
+   differs from N and from the others', and is never mistaken for the watermark.
+
+   **This does not imply that every piece of information used in the decision came from persistent memory** —
+   live working input remains separate under rules 6–6c.
+
+7a. **A cognitive cycle is a correlation identity, not a canonical object.** It needs durable correlation and
+   reproducibility identity, which is satisfied by a cycle identifier and watermark carried as correlation
+   fields on the cycle's records. Applying ADR-0007's stated test — *a distinct lifecycle, not a distinct
+   meaning, earns a primitive* — a cycle has no lifecycle: it is bound, records attach, it ends. It is never
+   versioned, superseded or revised. **`CognitiveCycle` is therefore not promoted to a fourth canonical
+   primitive.** Should an explicit `CycleOpened` anchor record later prove necessary, that is an additive event
+   type under ADR-0007's provisional list and changes no canonical object count.
+
+### Authorization is not frozen
+
+8. **`AS_OF(N)` is an epistemic watermark, not an authorization freeze.** A cycle pinned to an older snapshot
+   must **not** retain access to information or capabilities that currently applicable authorization rules have
+   revoked.
+
+   ```text
+   persistent knowledge eligibility  →  determined AS_OF(N)
+   current authorization / safety    →  may further restrict
+   ```
+
+   A later authorization or revocation change **may**: remove access; cause a retrieval to return
+   permission-limited or incomplete under ADR-0011 rule 11; or abort the current cycle where required.
+
+   It must **never**: inject newer cognitive knowledge into the `AS_OF(N)` view; rewrite what was historically
+   available at N; or imply that the revoked content did not previously exist.
+
+   **Minimum invariant only.** Full temporal authorization and revocation semantics — how revocation propagates
+   to derived knowledge (vision 9.43, 9.48) — are **not** designed here and are registered as **D-29**.
 
 ### Invariants and how each is checked
 
@@ -157,6 +249,11 @@ Seven rules.
 | U-6 | Within-cycle captures commit normally and become eligible to later cycles | Assert a record captured during a cycle is absent from that cycle's recalls and present in a subsequent cycle's `AS_OF` view |
 | U-7 | Behaviour inside an evaluation epoch is identical under any snapshot policy | Assert no divergence across an epoch, where ADR-0004 rule 9 freezes memory |
 | U-8 | Decision-level retrieval regret produces no watermark-mismatch false positives | Fixture with several recalls in one cycle; assert every item flagged eligible-but-not-returned was eligible to every recall |
+| U-9 | Live working input may change during a cycle without violating the watermark | Assert live-delivered evidence influencing a cycle triggers no watermark violation and no cycle termination |
+| U-10 | Live-supplied and recall-supplied knowledge remain distinguishable in the trace | Assert the cognition evidence records the provenance channel for each item cognition used (design owned by D-13) |
+| U-11 | Arriving commits neither invalidate nor terminate an in-flight cycle | Commit records mid-cycle; assert the cycle continues at its original watermark and is not restarted |
+| U-12 | A cycle's own emitted evidence is not recallable by that cycle | Assert `RecallPerformed`, `ContextAssembled` and `MemoryActivated` records emitted by a cycle never appear in that cycle's later recalls |
+| U-13 | Current revocation restricts but never injects | Fixture revoking access mid-cycle; assert retrieval returns permission-limited or incomplete, assert no post-N knowledge enters the view, and assert the historical record of what existed at N is unchanged |
 
 ## Evidence and rationale
 
@@ -179,10 +276,31 @@ multiple watermarks; it has renamed them. Every downstream consumer would then r
 eligibility, which is C's problem with additional vocabulary. If a cycle needs newer state, rule 5's answer —
 that this is a new cycle — is both simpler and more honest about what changed.
 
-**Rule 5 is the substantive commitment**, and it is a claim about what a decision *is*: cognition that has
-observed new state is making a different decision than cognition that has not. Forcing that to appear as a new
-cycle keeps the record's structure aligned with the epistemic situation, and it is what makes rule 4's
+**Rule 5a is the substantive commitment**, and it is a claim about what a decision *is*: cognition that has
+consumed new durable state is making a different decision than cognition that has not. Forcing that to appear
+as a new cycle keeps the record's structure aligned with the epistemic situation, and it is what makes rule 4's
 unqualified eligible set true rather than approximately true.
+
+**Rule 5 exists because the original wording pointed the requirement the wrong way.** Saying "needing newer
+state means a new cycle" reads as though the *arrival* of commits obliges a cycle to end, which would make
+every cycle's lifetime hostage to unrelated write traffic. Invisibility is the correct default: `#501` landing
+during `C1` is a non-event for `C1`. Only a deliberate act — cognition choosing to consume post-N durable
+intelligence — has a consequence, and the consequence is a cycle boundary rather than a violation.
+
+**Rule 5b closes a self-feedback loop that would otherwise be easy to build accidentally.** A cycle's own
+`RecallPerformed` and `MemoryActivated` records commit while the cycle is still running, and a naive
+implementation that resolves recall against "everything committed" would let a cycle retrieve the evidence of
+its own earlier retrievals. That is not merely noise: it makes the cycle's persistent-knowledge view depend on
+its own execution history, defeating rule 1 from inside.
+
+**Rules 6–6c mark the boundary the watermark was never meant to cross.** Freezing persistent knowledge is not
+freezing the world. An agent receiving a tool result or a user correction mid-cycle is not violating anything —
+that information reached it directly, not through recall, and forbidding it would make `AS_OF(N)` a rule about
+cognition rather than about memory. What rule 6b prevents is the same information *re-entering through recall*
+after being committed, which would smuggle post-N durable state into the view under the appearance of
+legitimate retrieval. The two paths must stay distinguishable in the trace (6c), because otherwise no later
+analysis can tell whether MNEXA supplied something or merely happened to also contain it — and that
+distinction is exactly what any claim about memory's contribution rests on.
 
 **On the interaction with ADR-0004.** That every policy behaves identically inside an evaluation epoch (U-7) is
 worth stating because it means this decision cannot influence measured results — it cannot be a source of
@@ -199,8 +317,10 @@ exactly rather than approximately.
 resolving current state per call; long-running cognition must be structured as multiple cycles; a cycle cannot
 consult memory for something it has just captured.
 
-**Newly required:** a cycle identity bound to a watermark; cycle-scoped watermark propagation to every recall;
-cycle boundaries observable enough to check U-1 and U-5.
+**Newly required:** a cycle correlation identity bound to a watermark; cycle-scoped watermark propagation to
+every recall and to the decision evidence; cycle boundaries observable enough to check U-1 and U-5; a
+provenance channel on cognition evidence distinguishing live-supplied from recall-supplied knowledge (design
+owned by D-13).
 
 **Constrained or unblocked:**
 
@@ -214,7 +334,11 @@ cycle boundaries observable enough to check U-1 and U-5.
   per decision; this supplies which one it is.
 - **ADR-0011** — rules 3a–3b stand unchanged; U-3 extends S-23's guarantee from one recall to a cycle.
 
-**No new durable decision uncovered.**
+**Newly uncovered decision — recorded, not decided here: D-29 — authorization and revocation temporal
+semantics.** Rule 8 states the minimum invariant this ADR requires: current authorization may restrict a pinned
+cycle, and may never inject knowledge into it or rewrite what existed at N. It does not design how revocation
+propagates to knowledge *derived* from revoked evidence, which vision 9.43 and 9.48 treat as substantial and
+which interacts with D-19 (forgetting). Registered rather than settled.
 
 ## Reversibility
 
