@@ -291,7 +291,9 @@ against genuine alternatives, and not presented as settled.
 
 **Sequencing:** surfaced immediately after D-17, per owner instruction.
 
-**Status update:** ADR-0005 proposed 2026-09-10; awaiting owner review. Reclassified **D2 → D3** because
+**Status:** **SETTLED** — ADR-0005 accepted 2026-09-10 after two owner-directed mechanical clarifications
+(strict commit-order preexistence with a retained DAG check; derivation edge set covered by version content
+identity). Reclassified **D2 → D3** because
 the edges' mutability determines what ADR-0002's accepted invariant I-9a actually asserts, placing the
 question inside an accepted constitutional ADR rather than beside it. The owner's expectation was adopted in
 its first half (pin derivation edges) and refined in its second: mutable heads live on *objects*, as
@@ -302,7 +304,7 @@ Option C, rejected).
 
 **Tier:** D2
 **Vision:** 3.21, 3.13, 3.34
-**Status:** pending. **Discovered while drafting ADR-0005; not decided there.**
+**Status:** ADR-0006 proposed 2026-09-10; awaiting owner review. **Discovered while drafting ADR-0005.**
 
 ADR-0005 rule 4 makes staleness computable — an abstraction is stale with respect to a basis when its pinned
 version is not that object's current head. It says nothing about what should happen when staleness is
@@ -314,6 +316,24 @@ consequences for 3.21's contradiction propagation.
 
 Not decided in ADR-0005 because that ADR's question was edge mutability, and settling re-derivation policy
 alongside it would repeat exactly the silent scope expansion that produced D-21.
+
+### D-23 — Supersession change classification
+
+**Tier:** D2
+**Vision:** 3.21, 3.13, 2.19
+**Status:** pending. **Discovered while drafting ADR-0006; not decided there.**
+
+Whether a supersession event must declare its kind — correction, clarification, extension, narrowing,
+refutation — so that staleness can be weighted by consequence rather than treated uniformly.
+
+ADR-0006 must currently treat every supersession identically, because no classification exists. That
+over-signals: a typo fix upstream produces the same staleness signal as a fundamental narrowing. Uniform
+treatment is the safe direction, but it caps how strong a consequence staleness can justify, and it is the
+most likely source of signal-volume problems flagged in ADR-0006's falsification conditions.
+
+Not decided in ADR-0006 because it concerns what a supersession *event* must carry, which is a different
+question from what a dependent should do, and settling it there would repeat the scope expansion that
+produced D-21 and D-22.
 
 ---
 

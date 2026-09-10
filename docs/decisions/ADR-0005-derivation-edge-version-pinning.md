@@ -1,6 +1,6 @@
 ---
 id: ADR-0005
-status: proposed
+status: accepted
 date: 2026-09-10
 scope: constitutional
 vision_refs:
@@ -18,6 +18,21 @@ mutability determines what an accepted constitutional invariant actually asserts
 approval.
 
 Covers register entry **D-21**.
+
+**Approval:** accepted by owner 2026-09-10, following two owner-directed mechanical clarifications made
+while the ADR was still `proposed`. The record below is as amended and approved.
+
+**Amendment history (all pre-acceptance, owner-directed):**
+
+1. **Strict preexistence replaces timestamp ordering.** The original L-7 said only that a derivation may not
+   reference a future version. That is insufficient where versions are created in the same transaction or
+   logical operation, or where timestamps can collide. Ordering is now defined by *commit*, and an explicit
+   DAG check is retained as defence in depth rather than relying on ordering alone. — rule 5, invariants
+   L-7/L-8/L-10.
+2. **The derivation edge set is part of the version's content identity.** The original left open whether a
+   version's provenance could be amended after commit. It cannot: source identities, edge types and the
+   provenance relationship set are covered by the version's content hash, and re-derivation produces a new
+   version rather than rewriting an existing one's provenance. — rule 6, invariants L-9/L-4.
 
 ## Decision question
 
@@ -131,8 +146,35 @@ Five rules.
 4. **Staleness is computed, not stored.** An abstraction is *stale with respect to a basis* when the pinned
    version is not that object's current head. This is derived on demand from rules 1–3; no separate staleness
    flag is maintained, so it cannot drift from the graph.
-5. **Derivation may not reference the future.** A derivation edge may only reference a version created at or
-   before the referencing version's own creation time.
+5. **Strict preexistence.** A derivation/provenance edge may reference only an immutable source version that
+   was **already committed** before the derived version itself is committed. A derived version may not cite:
+
+   - itself;
+   - an uncommitted version;
+   - a concurrently-created version whose prior commit is not established;
+   - a version committed after it.
+
+   The required order is therefore strict:
+
+   ```text
+   source version committed
+       → derived version may reference source
+   ```
+
+   Ordering is established by commit, not by wall-clock timestamp, because timestamps may collide or be
+   assigned before commit. This makes derivation ancestry a DAG *by construction*. An explicit cycle/DAG
+   integrity check is retained as defence in depth (L-8) rather than relying on ordering alone.
+
+6. **The derivation edge set is part of the version's content identity.** A derived version's provenance is
+   immutable and covered by that version's content hash. Once committed, none of the following may change
+   for that version:
+
+   - the source version identities it cites;
+   - the derivation edge types and their semantics;
+   - the provenance relationship set as a whole.
+
+   If an interpretation is re-derived against newer source versions, that produces a **new version** of the
+   derived object. It never rewrites the provenance of the historical derived version.
 
 ### Invariants and how each is checked
 
@@ -141,14 +183,25 @@ Five rules.
 | L-1 | Every interpretive→interpretive derivation edge carries an immutable version identity | Assert each such edge's reference type ∈ {version_id, content_hash}; assert zero edges referencing a bare object identifier |
 | L-2 | No derivation edge references an object head or a "current" alias | Assert no edge target resolves through a mutable pointer; attempt resolution twice across an intervening supersession and assert identical results |
 | L-3 | Every derivation edge resolves to an existing immutable version | Resolve all edges; assert none dangling |
-| L-4 | Supersession does not retarget existing derivation edges | Hash the incoming-edge set of an object's versions before and after a supersede operation; assert unchanged |
+| L-4 | Supersession does not retarget existing derivation edges | Hash the outgoing derivation-edge set of each existing version before and after a supersede operation elsewhere in the graph; assert unchanged |
 | L-5 | Staleness is computable for every derivation edge | For each edge, assert the referenced version's parent object and that object's head both resolve |
 | L-6 | Provenance traversal is stable over time | Hash the traversal output for an unchanged object; re-run after an unrelated supersession elsewhere; assert identical |
-| L-7 | No derivation edge references a version created after the referencing version | Compare creation timestamps/sequence numbers; assert target ≤ source |
+| L-7 | Every referenced source version was committed before the referencing version was committed | At commit, assert each source's state is `committed` and its commit sequence number is strictly less than the derived version's; reject the commit otherwise. Use the commit sequence, never wall-clock time |
+| L-8 | Derivation ancestry contains no cycle | Topological sort over all derivation edges independently of commit ordering; assert no cycle. Retained as defence in depth so a defect in sequence assignment cannot silently admit a cycle |
+| L-9 | A version's derivation edge set is covered by its content identity | Recompute the version content hash including source identities, edge types and the full relationship set; assert it matches the stored hash |
+| L-10 | No version cites itself | Assert no derivation edge has identical source and target version identity |
 
 L-6 is the end-to-end property the whole decision exists for: the answer to *why do we believe this* does not
-change unless the derivation itself changes. L-7 also reinforces ADR-0002 I-12 — a strictly non-increasing
-creation order makes provenance cycles impossible by construction rather than by a separate check.
+change unless the derivation itself changes.
+
+L-7 and L-8 are deliberately redundant. L-7 makes cycles impossible by construction through strict commit
+ordering; L-8 detects one anyway. The redundancy is the point — L-7's guarantee depends on commit sequence
+numbers being assigned correctly, and a defect there would otherwise admit a cycle with no check standing
+between it and ADR-0002 I-12's traversal, which assumes termination.
+
+L-9 is what makes rule 6 enforceable rather than declarative. Without provenance inside the content hash, a
+version's edge set could be amended after commit while its identity stayed the same, which would defeat L-6
+and reintroduce mutable provenance one level below where ADR-0002 I-5 blocked it.
 
 ## Evidence and rationale
 
@@ -188,10 +241,14 @@ detecting stale abstractions with a single comparison.
 to interpretive versions referenced by other interpretive versions, not only those referenced by history.
 
 **Newly required:** stable version identity on every interpretive version, including those never referenced
-from the historical plane; creation ordering on interpretive versions sufficient to evaluate L-7.
+from the historical plane; a total commit ordering (commit sequence numbers, not timestamps) sufficient to
+evaluate L-7; a commit-time admission check that rejects a derived version citing an uncommitted or
+concurrently-created source; version content hashing that covers the derivation edge set.
 
 **Constrained:** ADR-0002 I-9a now traverses a stable graph, so grounding is a statement about the derivation
-that occurred rather than about the present. ADR-0002 I-12's acyclicity is reinforced by L-7. D-19
+that occurred rather than about the present. ADR-0002 I-12's acyclicity is now guaranteed twice over — by
+construction through L-7 and by explicit check through L-8. Commit becomes a two-phase operation for derived
+versions, since admission depends on the commit state of every cited source. D-19
 (forgetting) inherits an additional retention obligation and will have to reckon with it, as flagged in
 ADR-0002.
 
