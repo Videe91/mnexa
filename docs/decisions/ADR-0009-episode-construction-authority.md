@@ -1,6 +1,6 @@
 ---
 id: ADR-0009
-status: proposed
+status: accepted
 date: 2026-09-10
 scope: constitutional
 vision_refs:
@@ -16,6 +16,24 @@ supersedes: []
 **Tier: D3 (epistemic semantics).** Requires explicit owner approval.
 
 Covers register entry **D-03**.
+
+**Approval:** accepted by owner 2026-09-10, following three owner-directed amendments made while the ADR was
+still `proposed`. The record below is as amended and approved.
+
+**Amendment history (all pre-acceptance, owner-directed):**
+
+1. **Option A's rejection was re-argued on architectural grounds.** The original rationale rejected
+   deterministic session-boundary episodes partly because a retrieval baseline could obtain similar structure,
+   making C > B harder to demonstrate. **That is not an admissible criterion** — it selects architecture to
+   win a benchmark, which `.claude/rules/scientific-method.md` forbids. The rejection now rests on the
+   semantic argument that external session boundaries are not cognitive episode boundaries. — *Options*,
+   *Evidence and rationale*.
+2. **External anchors no longer define Episode identity.** The original made the anchor fix Episode object
+   identity, which forced one episode per external session and forbade an episode spanning sessions — the very
+   conflation amendment 1 identifies. Episodes now receive their own stable opaque MNEXA identity. — rules
+   1–3, Q-4, Q-12, Q-15.
+3. **Deterministic validation establishes admissibility, not boundary truth.** The original left what
+   validation proves underspecified. — rules 12–14, Q-13, Q-14.
 
 ## Decision question
 
@@ -60,11 +78,17 @@ root, task identifier.
 Benefits: fully reproducible, which serves D-10 and reduces experimental noise; costs no consolidation
 compute; trivially auditable; no attributed-content machinery.
 
-Costs: the Episode becomes the session. Vision 3.8's worked example — deployment, error increase, saturation,
-alert, rollback, recovery becoming *"production incident caused by deployment X"* — is meaningful because of
-what occurred, not because a session ended. Purely deterministic episodes are log grouping, and if MNEXA's
-Episode is exactly the transcript boundary then a retrieval baseline can reproduce it, weakening the C > B
-claim that ADR-0003 rule 9 requires for any architectural advantage.
+Costs: **an externally defined session, call or transaction boundary is not a cognitive episode boundary.**
+The two differ structurally, not merely in quality:
+
+- One external session may contain **multiple** cognitive episodes — a single long session can cover an
+  investigation, an unrelated question, and a deployment.
+- One cognitive episode may span **multiple** external sessions — an incident diagnosed across a reconnect,
+  a handoff, or two days.
+
+Vision 3.8's worked example — deployment, error increase, saturation, alert, rollback, recovery becoming
+*"production incident caused by deployment X"* — is one episode because of what occurred, and no session
+boundary determines it. Option A therefore does not construct episodes; it renames sessions.
 
 ### B — Model-proposed construction only
 
@@ -77,18 +101,18 @@ the comparison the experiment depends on. Consumes consolidation compute per seg
 stand alone constitutionally: under ADR-0002 a model's segmentation is attributed content — a proposal — so
 something else must establish the Episode regardless. Option B is not actually a complete answer.
 
-### C — Hybrid: deterministic anchors and constraints, model-proposed interpretation, runtime-validated
+### C — Hybrid: deterministic constraints, model-proposed interpretation, runtime-validated
 
-A deterministic **anchor** derived from identifier evidence defines the envelope and fixes Episode object
-identity. Within that envelope, boundaries may be deterministic or model-proposed. The trusted runtime
-establishes the Episode version, validating constraints and recording provenance for how the boundary was
-decided.
+Deterministic structural evidence constrains and helps generate candidates. Boundaries within those
+constraints may be deterministic or model-proposed. The trusted runtime establishes the Episode version by
+validating structural admissibility and recording provenance for how the boundary was decided. Episode
+identity is MNEXA's own, independent of any external grouping key.
 
-Benefits: keeps identity and constraints reproducible while allowing meaning to enter; makes the
-proposal/establishment split explicit rather than implicit; degrades gracefully — with no model available,
-C reduces to A and still works.
+Benefits: allows cognitive meaning to enter while keeping every structural property checkable; makes the
+proposal/establishment split explicit; degrades gracefully — with no model available, boundaries are
+deterministic and the machinery is unchanged.
 
-Costs: two mechanisms to describe; the anchor concept is new vocabulary.
+Costs: two mechanisms to describe; requires being precise about what validation does and does not prove.
 
 ## Decision
 
@@ -96,70 +120,105 @@ Costs: two mechanisms to describe; the anchor concept is new vocabulary.
 
 Eleven rules.
 
-### Identity and anchors
+### Episode identity
 
-1. **Every Episode is bound to exactly one anchor.** An anchor is a deterministic envelope derived from
-   identifier evidence present in ExperienceRecord payloads — run, session, trace root, task or transaction
-   identifier. The anchor fixes **Episode object identity**: the same anchor always denotes the same Episode
-   object, so a later reinterpretation produces a *new version* of that object rather than a competing one.
+1. **An Episode has its own stable opaque MNEXA identity**, assigned when it is first established and stable
+   across all its versions:
 
-2. **v0 anchors are identifier-based, never time-based.** Time-gap heuristics are excluded from v0 because
-   they would make this decision depend on D-05. This is a scope constraint, not a claim that time-based
-   anchoring is wrong.
+   ```text
+   Episode E17
+     v1  v2  v3        ← object identity E17 unchanged
+   ```
 
-3. **The anchor is evidence, not the Episode.** An externally supplied `session_id` is historical payload
-   (ADR-0007). The Episode is MNEXA's interpretive grouping over records carrying it. They are different
-   objects, and the presence of the identifier does not make the grouping historical.
+2. **Identity is never derived from external grouping keys or from membership.** A source session ID, call
+   ID, transaction ID or time-window key is *historical evidence* and may constrain or support a proposal,
+   but **external grouping identity ≠ cognitive Episode identity**. Identity is also not derived from the
+   membership set, which evolves across versions.
+
+3. **Revision requires explicit lineage targeting.** A later consolidation proposal produces a **new version
+   of an existing Episode** only when the proposal explicitly targets that Episode lineage as a revision and
+   the normal authority and head-movement rules permit it. Otherwise it establishes a **separate Episode
+   object**.
+
+   This is what makes revision distinguishable from duplication without conflating identity with any external
+   key.
+
+### Structural evidence (constraints, not identity)
+
+4. **What "anchor" means here.** An anchor is deterministic structural evidence drawn from identifier
+   material in ExperienceRecord payloads — run, session, trace root, task or transaction identifier — used for
+   **candidate generation** and for **validation**. It is never an identity. Because identity is opaque and
+   assigned at establishment (rule 1), anchors cannot reintroduce the conflation rule 2 forbids.
+
+5. **v0 anchors are identifier-based, never time-based.** Time-gap heuristics are excluded from v0 because
+   they would make this decision depend on D-05. A scope constraint, not a claim that time-based anchoring is
+   wrong.
+
+6. **The permitted shapes follow.** Because anchors do not define identity, all of these are expressible:
+   multiple Episodes inside one external session; one ExperienceRecord in multiple Episodes; overlapping
+   Episodes; and — where evidence supports it — an Episode spanning multiple external sessions.
 
 ### Membership
 
-4. **Membership references exact ExperienceRecord identities.** Required by ADR-0002 I-9a — grounding
-   traverses to historical records — and ADR-0005 L-3. Records are immutable, so no version-pinning question
-   arises.
+7. **Membership references exact ExperienceRecord identities.** Required by ADR-0002 I-9a and ADR-0005 L-3.
+   Records are immutable, so no version-pinning question arises.
 
-5. **Membership and order are immutable within a version.** This is not a new rule: membership *is* the
-   version's derivation edge set, already covered by its content identity under ADR-0005 rule 6 and L-9.
+8. **Membership and order are immutable within a version.** Not a new rule: membership *is* the version's
+   derivation edge set, already covered by its content identity under ADR-0005 rule 6 and L-9.
 
-6. **Extension creates a new version.** An Episode extended by later records produces a new version whose
-   membership is the prior membership plus the additions. The prior version is unchanged and remains
-   retrievable (ADR-0002 rule 4, ADR-0005 L-4). Nothing rewrites an earlier version.
+9. **Extension creates a new version.** Prior versions are unchanged and remain retrievable.
 
-7. **No exclusivity constraint.** A single ExperienceRecord may belong to more than one Episode, and
-   overlapping episodes are permitted. v0 uses a single anchor kind, so overlap is expected to be rare in
-   practice — but forbidding it would add an invariant with no v0 purpose and would foreclose hierarchical
-   episodes later.
+10. **No exclusivity constraint.** Overlap and multi-membership are permitted.
 
 ### Authority
 
-8. **A model may propose a boundary; it may never establish one.** A model's segmentation is recorded as a
-   `ConsolidationProduced` record — attributed content asserting the production occurred (ADR-0002 rules
-   8–10). The Episode version is then written by the trusted runtime, citing that record in its provenance.
-   The runtime is always `committed_by`; the model is never a write principal.
+11. **A model may propose a boundary; it may never establish one.** A model's segmentation is recorded as a
+    `ConsolidationProduced` record — attributed content asserting the production occurred (ADR-0002 rules
+    8–10). The Episode version is written by the trusted runtime, which is always `committed_by`.
 
-9. **The boundary method is part of provenance.** Every Episode version records how its boundary was decided
-   — deterministic, or model-proposed with the model identity and version — alongside the anchor evidence and
-   the member records. This makes *why these records and not others* answerable, which is 3.20's evidence
-   spine applied to grouping.
+12. **Deterministic validation establishes structural admissibility only.** The validator may check that:
+
+    - every ExperienceRecord reference exists;
+    - every referenced record is committed;
+    - provenance is legal under ADR-0002 and ADR-0005;
+    - membership uses immutable record identities;
+    - required access and ownership constraints hold;
+    - the proposal's structure is valid;
+    - any **declared** external anchors actually match the underlying historical payload.
+
+    Passing these establishes that the proposal is **admissible**. It does **not** prove that these records
+    objectively constitute the correct cognitive episode.
+
+13. **What an established Episode means.** Episode membership remains an interpretive claim. An established
+    Episode asserts:
+
+    > *this is MNEXA's currently established, evidence-backed interpretation of an episode boundary*
+
+    and never *this boundary is historical fact*. **A model gains no epistemic authority merely because its
+    proposal passed structural validation.**
+
+14. **Provenance is mandatory.** Every Episode version retains provenance to the exact ExperienceRecords it
+    groups, the attributed proposal or consolidation production where applicable, and any structural anchor
+    evidence the validator used.
 
 ### Timing and revision
 
-10. **Episodes form during consolidation only.** Not incrementally as events arrive. This avoids a new
-    version per event, and it satisfies ADR-0004 rule 9, since consolidation never runs inside an evaluation
-    epoch. There is no live episode-assembly path in v0.
+15. **Episodes form during consolidation only.** Not incrementally as events arrive. This avoids a version
+    per event under rule 8, and satisfies ADR-0004 rule 9 since consolidation never runs inside an evaluation
+    epoch.
 
-11. **Reinterpretation produces a new version, never an edit.** A later consolidation that groups the same
-    anchor's records differently creates a new Episode version. Prior versions remain retrievable, and
-    ADR-0006 governs the consequences for anything derived from them: dependents become `DIRECT_STALE` and
-    are queued for revalidation rather than invalidated.
+16. **Reinterpretation produces a new immutable version, never a rewrite.** ADR-0006 governs the consequences
+    for dependents: they become `DIRECT_STALE` and are queued for revalidation rather than invalidated.
 
 ### Explicitly deferred
 
-**Split and merge are not in v0.** Anchor-bound identity (rule 1) means an Episode's extent is determined by
-its anchor, so subdividing or combining episodes only arises when boundaries must cross or partition anchor
-scopes — which no v0 contract requires. Were it needed, the shape is already implied: a split or merge would
-produce new Episode objects deriving from the originals' versions, not new versions of them, since the
-originals had valid independent extents. That is a distinct identity decision and is recorded as **D-25**
-rather than settled here.
+**Split and merge are not in v0.** With opaque identity and explicit lineage targeting (rules 1–3), a
+consolidation that regroups records either targets an existing lineage — producing a new version — or
+establishes a separate Episode. Neither is a split or a merge in the strict sense: no v0 contract requires
+one Episode object to become two, or two to become one, with their prior lineages resolved. Were it needed,
+the shape is implied: a split or merge would produce **new Episode objects deriving from the originals'
+versions**, not new versions of them, because the originals had valid independent extents and ordinary
+supersession would misrepresent that. That is a distinct identity decision, recorded as **D-25**.
 
 Also out of scope, per the v0 non-goals: hierarchical narrative memory, collective episodes, and any
 causal or world-model structure over episodes.
@@ -171,14 +230,18 @@ causal or world-model structure over episodes.
 | Q-1 | Every Episode version's membership resolves to existing ExperienceRecord identities | Resolve all member references; assert none dangling |
 | Q-2 | Membership and order are immutable within a version | Recompute the version content hash including the ordered member set; assert it matches (ADR-0005 L-9) |
 | Q-3 | Extension creates a new version and leaves the prior unchanged | Assert a new version identity exists and the prior version's hash is unchanged and still resolves |
-| Q-4 | Every Episode object is bound to exactly one anchor, and one anchor maps to one Episode object | Assert a single anchor identity per object; assert the anchor→object mapping is injective |
-| Q-5 | Anchor evidence resolves to historical records | Assert every anchor's supporting identifier reference resolves into the historical plane |
+| Q-4 | Episode object identity is opaque, stable across versions, and derived from neither external keys nor membership | Assert identity is a MNEXA-issued opaque value; assert it is unchanged across a version chain; assert no external identifier or membership hash is used to compute it |
+| Q-5 | Declared anchor evidence resolves and matches the underlying payload | Assert every declared anchor's identifier reference resolves into the historical plane and matches the referenced records' actual payload |
 | Q-6 | Anchors are identifier-based, never time-derived | Assert every anchor's basis type ∈ the identifier-basis enum; assert no time-gap basis is admissible in v0 |
 | Q-7 | A model never writes an Episode version | Assert `committed_by` is a trusted runtime (ADR-0002 I-2); assert every model-proposed boundary cites a `ConsolidationProduced` record |
 | Q-8 | Boundary method and, where applicable, model identity are recorded in provenance | Assert every Episode version carries a non-null boundary-method field and, when model-proposed, a resolvable model identity |
 | Q-9 | Episodes form only during consolidation, never inside an evaluation epoch | Assert no Episode version's commit falls between an epoch's open and close (ADR-0004 K-4) |
-| Q-10 | All members of a version satisfy its anchor constraint | Assert every member record carries the anchor's identifier evidence |
+| Q-10 | Declared anchors are truthful, but membership is not confined to one anchor | Assert any declared anchor matches the payload (Q-5); assert **no** check rejects a version whose members span multiple anchors |
 | Q-11 | No exclusivity constraint is enforced | Assert a record may be admitted to a second Episode without rejection |
+| Q-12 | A new version exists only where the proposal explicitly targeted that lineage | Assert every version after v1 carries an explicit lineage target matching its object identity; assert an untargeted proposal establishes a new object instead |
+| Q-13 | Validation checks admissibility only | Assert the validator's check set equals the enumerated admissibility list and contains no check purporting to establish boundary correctness |
+| Q-14 | Passing validation confers no epistemic authority | Assert an established Episode's status remains an interpretive claim; assert no code path treats validator success as evidence the boundary is correct |
+| Q-15 | Multiple Episodes may share one external session, and one Episode may span several | Assert no uniqueness constraint on external-key→Episode; assert a version whose members carry differing session identifiers is admissible |
 
 ## Evidence and rationale
 
@@ -188,71 +251,95 @@ party to establish the result. Recognising that collapses the apparent three-way
 whether the establishing party has deterministic constraints to validate against. C says yes; B without
 constraints says the runtime rubber-stamps whatever the model returned, which is establishment in name only.
 
-Option A deserves its due: it is genuinely reproducible, costs nothing, and would be defensible if episodes
-were only a storage convenience. It fails on the experiment rather than on principle. ADR-0003 rule 9
-requires C > B before any claim of advantage over conventional retrieval, and if MNEXA's episodes are exactly
-session boundaries, a retrieval baseline chunking by session has the same structure. Option A would leave the
-architectural claim resting entirely on beliefs and recall, with episodes contributing nothing distinguishing.
+Option A is rejected on a semantic argument that stands independently of any measurement. An external
+session, call or transaction boundary is a fact about a *transport or execution container*; a cognitive
+episode is a claim about what constitutes one meaningful unit of experience. Those coincide only by accident.
+One session routinely contains several unrelated episodes, and one episode can outlive a reconnect or a
+handoff. Option A does not construct episodes; it renames sessions, and calling the result an Episode would
+misrepresent what the object asserts.
 
-The anchor is doing more work than it appears. Making it fix *object identity* rather than merely suggest a
-boundary answers the revision question that would otherwise be genuinely hard: when a later consolidation
-regroups the same records, is that a new Episode or a new version of the old one? Without a deterministic
-identity rule that question has no principled answer, and consolidation would accumulate competing episodes
-over the same records with no way to tell revision from duplication. With anchor-bound identity it is simply
-a new version, and ADR-0006's staleness machinery handles the consequences for dependents without any
-episode-specific mechanism.
+An earlier draft of this ADR additionally argued that Option A would make C > B harder to demonstrate,
+because a retrieval baseline could reproduce session-shaped chunks. **That argument was withdrawn as
+inadmissible.** Choosing an architecture because a simpler one might not beat the baseline is selecting the
+mechanism to win the measurement, which `.claude/rules/scientific-method.md` forbids. Architecture is chosen
+for semantic correctness before outcomes are known, and the benchmark is then permitted to falsify the claim.
+If a simpler architecture performs no better than conventional retrieval, that is a valid and useful result,
+not a reason to have built something more elaborate in advance.
+
+Identity is opaque rather than anchor-derived because tying it to an external key would silently re-impose
+the very equivalence Option A was rejected for. If the session ID were the Episode's identity, then one
+session could hold at most one Episode and no Episode could span two — the architecture would assert
+session ≡ episode in its identity model while denying it in its prose. Rule 3's explicit lineage targeting
+answers the revision-versus-duplication question that anchor-identity was reaching for, without buying it at
+that price: a proposal either names the lineage it revises or it does not, and that is a property of the
+proposal rather than of any external key.
 
 Rule 7's permissiveness is deliberate asymmetry. Adding an exclusivity constraint later is cheap; removing
 one is not, because data written under exclusivity never recorded the memberships it rejected. The same
 asymmetry argued for the smaller object set in ADR-0007.
 
-Rule 10 removes a problem rather than solving one. Live incremental assembly would produce a version per
+Rules 12–14 exist because structural validation is easy to over-read. Every check the validator performs is
+about *form* — references resolve, records are committed, provenance is legal, declared anchors are truthful.
+None of them touches whether these records belong together, and none could: that is an interpretive judgement
+and no deterministic check can settle it. Saying so explicitly matters because the alternative failure is
+quiet — a boundary that passed validation being treated downstream as though it had been verified, which
+would let a model acquire epistemic authority through the back door of a green check. Q-13 and Q-14 are what
+prevent the validator's check set from silently growing a correctness claim.
+
+Rule 15 removes a problem rather than solving one. Live incremental assembly would produce a version per
 event under rule 6's immutability, which is both expensive and meaningless — most intermediate versions would
 never be read. Deferring formation to consolidation makes the version chain match the granularity at which
 episodes are actually interpreted, and it inherits ADR-0004's epoch guarantee for free.
 
 ## Consequences
 
-**Easier:** deciding whether a regrouping is a revision or a new episode; reproducing episode identity across
-runs even when boundaries are model-proposed; auditing why particular records were grouped; degrading to
-deterministic construction when no model is available.
+**Easier:** representing episodes that do not align with session boundaries; distinguishing revision from
+duplication by an explicit property of the proposal; auditing why particular records were grouped; degrading
+to deterministic boundaries when no model is available.
 
-**Harder:** anchors must be extractable from every experience source, so each adapter must supply identifier
-evidence or its records cannot be episoded; consolidation carries the cost of segmentation; a corpus with no
-usable identifiers has no anchors and therefore no episodes in v0.
+**Harder:** consolidation must decide, per proposal, whether it is revising a lineage or establishing a new
+Episode — a policy this ADR requires but does not supply (see D-26); consolidation carries the cost of
+segmentation; without an explicit targeting policy, repeated consolidation could accumulate near-duplicate
+Episodes over the same records.
 
-**Newly required:** an anchor-basis registry with an identifier-only enum for v0; boundary-method and
-model-identity fields on Episode versions; anchor→object identity mapping.
+**Newly required:** MNEXA-issued opaque Episode identity; an explicit lineage-target field on proposals; an
+anchor-basis registry with an identifier-only enum for v0; boundary-method and model-identity fields on
+Episode versions.
 
 **Constrained:** D-07 inherits a worked instance of propose-versus-establish that its general rule should
 remain consistent with. D-10 is helped — episode *identity* is deterministic even where boundaries are not,
 so reproducibility failures localize to segmentation. D-13's activation records may reference Episode
 versions as pinned interpretive versions under ADR-0002 rules 5–6.
 
-**Newly uncovered decision — recorded, not decided here: D-25 — episode split and merge identity.** Deferred
-from v0 as above; becomes live if any contract needs boundaries crossing or subdividing anchor scopes.
+**Newly uncovered decisions — recorded, not decided here:**
+
+- **D-25 — episode split and merge identity.** Deferred from v0 as above.
+- **D-26 — episode lineage revision targeting policy.** Rule 3 requires a proposal to declare whether it
+  revises an existing lineage, but does not say how consolidation decides. Without a policy, repeated
+  consolidation may establish near-duplicate Episodes over the same records rather than revising. This is
+  consolidation behaviour rather than episode semantics, and settling it here would have expanded scope.
 
 ## Reversibility
 
-High for anchor kinds and boundary method, low for the identity rule. Adding time-based or composite anchors
-later is a registry change. Changing what fixes Episode object identity after episodes exist would require
-re-deriving identity across the whole store, since existing objects would have been created under a different
-mapping. The identity rule is therefore the part of this ADR most worth scrutinising before acceptance.
+High throughout, and higher than the earlier draft. Adding time-based or composite anchors later is a
+registry change. Because identity is opaque and MNEXA-issued rather than derived from anything, changing
+anchor policy, boundary method or even the notion of anchors entirely does not disturb existing Episode
+identities — which is a direct benefit of amendment 2 over the anchor-derived scheme it replaced.
 
 ## Validation / falsification
 
 Revisit if:
 
-- available experience sources turn out not to carry usable identifiers, leaving anchors underdetermined and
-  forcing time-based anchoring — which would make D-05 a prerequisite after all; or
-- model-proposed boundaries prove so unstable across consolidations that Episode version churn dominates the
-  store, suggesting v0 should reduce to Option A; or
-- episodes are found never to be recalled independently of the beliefs derived from them, which would suggest
-  the kind is carrying no weight at v0 scale.
+- available experience sources carry no usable identifiers, leaving candidate generation underdetermined and
+  forcing time-based evidence — which would make D-05 a prerequisite after all; or
+- model-proposed boundaries prove so unstable across consolidations that near-duplicate Episodes accumulate,
+  which would make D-26 urgent rather than deferred; or
+- episodes are never recalled independently of the beliefs derived from them, suggesting the kind carries no
+  weight at v0 scale.
 
-Evidence that C > B holds with episodes disabled entirely would falsify the claim that episode construction
-contributes to the architectural advantage, and would argue for removing the kind from v0 rather than
-refining it.
+Evidence that MNEXA performs equally well with episodes disabled would be a genuine and reportable result
+about this architecture, not a defect in the experiment. It would argue for removing the kind rather than
+refining it, and that argument should be allowed to run.
 
 ## Outcome
 

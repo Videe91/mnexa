@@ -2,9 +2,9 @@
 
 **Phase:** MNEXA v0 — specification phase, decision audit stage
 
-**Current milestone:** ADR-0002 … ADR-0008 accepted. Object set and all three reference directions are
-settled. `ADR-0009` proposes episode construction and boundary authority. Specification remains **blocked**
-at that D3 approval boundary.
+**Current milestone:** ADR-0002 … ADR-0009 accepted. Object set, all three reference directions, and episode
+construction are settled. Specification remains **blocked** on **D-05** (time and ordering semantics), which
+has no ADR drafted.
 
 **Branch:** `spec/mnexa-v0`
 
@@ -15,17 +15,17 @@ until the durable decisions it depends on are accepted.
 
 **Active implementation plan:** None.
 
-**Last completed artifact:** `ADR-0008` — **accepted** 2026-09-10 after one owner-directed amendment. The
-register `docs/decisions/v0-decision-register.md` holds the inventory of D2/D3 decisions (D-01 … D-25) plus 5
+**Last completed artifact:** `ADR-0009` — **accepted** 2026-09-10 after three owner-directed amendments. The
+register `docs/decisions/v0-decision-register.md` holds the inventory of D2/D3 decisions (D-01 … D-26) plus 5
 recorded vision tensions, one of which (T-1) ADR-0007 resolved.
 
 **Verification:** Documentation-only change. Verified by inspection: ADR-0002, ADR-0003 and ADR-0004 follow
-the template in `docs/decisions/README.md`; all 110 invariants (14 I-, 10 J-, 17 K-, 10 L-, 21 M-, 11 N-, 16 P-,
-11 Q-) carry stated mechanical checks; no placeholder text remains; register entries carry tier classification and vision
+the template in `docs/decisions/README.md`; all 114 invariants (14 I-, 10 J-, 17 K-, 10 L-, 21 M-, 11 N-, 16 P-,
+15 Q-) carry stated mechanical checks; no placeholder text remains; register entries carry tier classification and vision
 references; no production code, tests, specification, benchmark harness or plan were created.
 
-**Open D2/D3 decisions:** 25 recorded in `docs/decisions/v0-decision-register.md` (D-01 … D-25); D-01, D-02,
-D-08, D-09, D-17, D-21, D-22 and D-24 are settled, 17 remain open.
+**Open D2/D3 decisions:** 26 recorded in `docs/decisions/v0-decision-register.md` (D-01 … D-26); D-01, D-02,
+D-03, D-08, D-09, D-17, D-21, D-22 and D-24 are settled, 17 remain open.
 
 - `ADR-0002` — experience/interpretation boundary and historical immutability — **accepted**. Settles D-01;
   partially settles D-06; pre-shapes D-07 and D-13.
@@ -44,20 +44,24 @@ D-08, D-09, D-17, D-21, D-22 and D-24 are settled, 17 remain open.
 - `ADR-0008` — historical-to-historical reference semantics — **accepted**. Settles D-24. Structural edges
   admitted on evidence, backward-only, inline when known at commit and `RelationshipRecorded` when discovered
   later. Unblocked D-12.
-- `ADR-0009` — episode construction and boundary authority (D-03) — **proposed, D3, awaiting owner review**.
-  Deterministic anchors fix Episode object identity; boundaries may be model-proposed but only a trusted
-  runtime establishes them; episodes form at consolidation only.
-- D-25 (episode split/merge identity) was discovered while drafting ADR-0009 and deferred from v0.
-- D-23 (supersession change classification) remains **deferred**: not required for a correct v0 spec.
-- Remaining after D-03: D-04 … D-07, D-10 … D-16, D-18 … D-20, D-23, D-25.
+- `ADR-0009` — episode construction and boundary authority — **accepted**. Settles D-03. Episodes carry
+  opaque MNEXA identity; external session keys are evidence only; validation establishes admissibility, not
+  boundary truth; episodes form at consolidation only.
+- **D-05 (time and ordering semantics) is the next blocker** — chosen by specification impact, not register
+  order. No ADR drafted; awaiting owner direction.
+- D-26 (episode lineage revision targeting policy) was discovered while amending ADR-0009 and recorded rather
+  than decided.
+- D-23 (supersession classification) and D-25 (episode split/merge) remain **deferred**: neither is required
+  for a correct v0 spec.
+- Remaining after D-05: D-04, D-06, D-07, D-10 … D-16, D-18 … D-20, D-23, D-25, D-26.
 
-**Known blockers:** `ADR-0009` requires explicit owner approval. Per `.claude/rules/decisions.md`, work does
+**Known blockers:** D-05 requires an accepted ADR before the experience-capture and ordering contracts may
+be written. Per `.claude/rules/decisions.md`, work does
 not proceed past an unapproved D3 boundary. The v0 specification additionally awaits the remaining
 domain-model decisions.
 
 **Experiments in progress:** None. No benchmark contract exists.
 
-**Next approved action:** Owner reviews `ADR-0009`. On acceptance, set its status to `accepted`, record the
-approval context without rewriting the original rationale, then surface the next blocking decision in
-dependency order. Do not write MNEXA production code, the benchmark
+**Next approved action:** Surface **D-05** (time and ordering semantics) as a proposed ADR, on owner
+direction. Do not write MNEXA production code, the benchmark
 harness, the v0 specification, or an implementation plan.

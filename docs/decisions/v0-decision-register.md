@@ -40,10 +40,32 @@ the highest-risk items in this register.
 
 Six decisions settled: D-01, D-08, D-09, D-17, D-21, D-22 (ADR-0002 … ADR-0006).
 
-**Next blocker: D-03 — episode construction and boundary authority.** ADR-0009 proposed 2026-09-10,
-awaiting review.
+**Nine decisions settled:** D-01, D-02, D-03, D-08, D-09, D-17, D-21, D-22, D-24 (ADR-0002 … ADR-0009).
 
-Eight decisions settled: D-01, D-02, D-08, D-09, D-17, D-21, D-22, D-24 (ADR-0002 … ADR-0008).
+**Next blocker: D-05 — time and ordering semantics.** No ADR drafted; awaiting owner direction.
+
+Chosen by breadth of specification impact rather than register order. Blocking counts across the thirty
+specification elements:
+
+| Decision | Spec elements blocked | Notes |
+|---|---|---|
+| **D-05 time/ordering** | **9, 10, 13, 14, 15, 20, 21** | Every record and version carries time; capture cannot be specified without it |
+| D-18 failure/idempotency | 21, 22 | Shares element 21 with D-05; separable — idempotency is write identity, ordering is sequence |
+| D-13 activation trace | 20, 24 | Vision tension T-3 open |
+| D-12 linkage | 14, 15 | Unblocked by ADR-0008 |
+| D-10 recall reproducibility | 12, 13 | |
+| D-04 identity semantics | 6, 7 | Narrowed by ADR-0007/0009 |
+| D-06 provenance minimum | 17 | Largely settled already |
+| D-07 consolidation authority | 16 | Pre-shaped by ADR-0002; now also by ADR-0009 |
+| D-11 confidence | 19 | Vision tension T-2 open |
+| D-14 port surface | 23 | Better derived after the contracts it exposes |
+| D-15 memory-not-authority | 25 | |
+| D-16 personal scope | 11 | |
+| D-19 decay | 29 | Likely deferral |
+| D-20 domain generality | 2, 3 | |
+
+D-04 is *not* next despite being numerically next: ADR-0007 and ADR-0009 narrowed it considerably, and it
+blocks two elements to D-05's seven.
 
 **D-23 is deferred.** It is not required to write a correct v0 specification: ADR-0006 treats all
 supersessions uniformly, which is complete and safe, and classification would only refine signal quality.
@@ -101,8 +123,9 @@ closes the loop. Which objects exist in v0 is durable because later phases exten
 
 **Tier:** D3 (epistemic semantics)
 **Vision:** 2.3, 3.8, 3.2, 10.7
-**Status:** ADR-0009 proposed 2026-09-10; awaiting owner review. Plane was fixed by ADR-0007 (resolving
-tension T-1); ADR-0009 covers construction and authority only.
+**Status:** **SETTLED** — ADR-0009 accepted 2026-09-10 after three owner-directed amendments (Option A
+re-argued on semantic grounds; opaque MNEXA Episode identity replacing anchor-derived identity; validation
+establishes admissibility not boundary truth).
 
 What exactly constitutes an Episode, what its boundaries are, and *who* draws them: the agent, a
 deterministic rule, or a model. If a model segments episodes, the episode is an interpretation and cannot
@@ -123,9 +146,16 @@ whether entity resolution is reversible; whether identity may be assigned by a m
 
 **Tier:** D2
 **Vision:** 2.6, 6.4, 6.6
-**Status:** pending. Constrained by ADR-0005's commit ordering for interpretive versions and by ADR-0008
-(proposed), which makes commit sequence the historical plane's ordering primitive. The occurred-at versus
-recorded-at question remains fully open and is D-05's core.
+**Status:** **NEXT BLOCKER.** Constrained by ADR-0005 and ADR-0008, which fixed **commit sequence** as the
+admission-ordering primitive for both planes. That sharpens rather than answers D-05: three time axes now
+exist and their relationship is unspecified — *occurred-at* (when the event happened in the world),
+*recorded-at* (when MNEXA received it), and *commit sequence* (already settled). D-05 must settle the first
+two and how they relate to the third.
+
+Blocks the largest share of the specification — items 9, 10, 13, 14, 15, 20 and 21 — because every record and
+every version carries time, and no capture contract can be written without saying which timestamps exist and
+what ordering guarantee capture provides. Also upstream of D-12 (an outcome observed long after it occurred
+is inexpressible without the distinction) and pairs with D-18 in specification item 21.
 
 Whether v0 is bitemporal (occurred-at vs recorded-at), what ordering guarantee the ledger provides, and
 how "what was knowable at time T" is reconstructed. This is also a benchmark-integrity control: without a
@@ -417,6 +447,22 @@ that earned Entity its own primitive in ADR-0007.
 
 Deferred rather than decided because it is an identity decision distinct from boundary construction, and
 settling it inside ADR-0009 would have expanded that ADR's surfaced scope.
+
+### D-26 — Episode lineage revision targeting policy
+
+**Tier:** D2
+**Vision:** 3.13, 3.19
+**Status:** pending. **Discovered while amending ADR-0009; not decided there.**
+
+ADR-0009 rule 3 requires a consolidation proposal to declare explicitly whether it revises an existing
+Episode lineage or establishes a new Episode. It does not say how consolidation decides which.
+
+Without a targeting policy, repeated consolidation over the same records may accumulate near-duplicate
+Episodes rather than revising, since establishing a new object is always the path of least resistance.
+
+This is consolidation *behaviour* rather than episode *semantics*, and it interacts with D-07. Not decided in
+ADR-0009 because that ADR's question was construction and authority; settling targeting policy there would
+have expanded its surfaced scope.
 
 ---
 
