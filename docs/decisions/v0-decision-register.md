@@ -14,6 +14,16 @@ vision is silent, ambiguous, or self-tensioned, a durable decision exists and is
 
 ---
 
+## Sequencing decision (owner, 2026-09-10)
+
+After ADR-0002 is accepted, experimental validity is de-risked **before** the domain model continues.
+Order: ADR-0002 -> D-08/D-09/D-17 -> remaining domain-model decisions.
+
+Recommended decomposition for D-08/D-09/D-17: **two ADRs** (resource parity; hidden-evaluation isolation).
+Rationale recorded under those entries.
+
+---
+
 ## Severity note
 
 Three entries (**D-08**, **D-09**, **D-17**) do not affect whether MNEXA works. They affect whether
@@ -52,8 +62,8 @@ D-16 / D-18 / D-19 / D-20 scope + durability   [mostly deferrals; low branching 
 ### D-01 — Experience/interpretation boundary and historical immutability
 
 **Tier:** D3 (constitutional)
-**Vision:** 2.2, 3.4, 3.13, 10.7, 10.70 law 2
-**Status:** ADR-0002 proposed
+**Vision:** 2.2, 3.4, 3.13, 5.40, 9.11, 10.7, 10.70 law 2
+**Status:** ADR-0002 proposed (amended 2026-09-10 on owner direction; awaiting acceptance)
 
 The vision states the separation is constitutional but does not fix *where the line falls* for concrete
 v0 objects, at what granularity a historical record is immutable, or what "immutable" obligates
@@ -101,7 +111,8 @@ recorded-at axis, later knowledge can silently leak into a reconstruction of an 
 
 **Tier:** D2 (D3 where it touches evidence semantics)
 **Vision:** 3.20, 3.43, 9.6, 10.36
-**Status:** blocked on D-01
+**Status:** blocked on D-01. **Partially settled by ADR-0002** rules 8-10 (model
+provenance for attributed content). Remaining scope: provenance minimum for non-model-authored records.
 
 The minimum provenance every v0 object carries, explicitly including *model provenance* (3.43). The v0
 non-goals defer the epistemic immune system but not provenance itself — 10.36 makes evidence-path
@@ -111,7 +122,8 @@ recoverability constitutional.
 
 **Tier:** D3 (constitutional)
 **Vision:** 3.41, 3.48 law 9, 10.21, 10.70 law 5
-**Status:** pending
+**Status:** pending. Pre-shaped by ADR-0002 rules 8-10: a consolidation model's output is an
+attributed production recorded historically; the proposal it carries is interpretive.
 
 The vision forbids a model having unilateral authority over truth and separates author from judge. In v0
 there is no Verification Engine and no second agent. What, concretely, may a model establish in a
@@ -121,7 +133,7 @@ single-agent v0 without violating the law — and what must remain a proposal?
 
 **Tier:** D3 (scientific / benchmark methodology)
 **Vision:** 3.42, 10.41; `.claude/rules/scientific-method.md`
-**Status:** pending. **Highest severity.**
+**Status:** pending; queued next. Proposed to share one ADR with D-09 (resource parity).
 
 If consolidation is performed by a model stronger than the frozen model under test, condition C's gain may
 come from the consolidation model's intelligence rather than from accumulated experience. The thesis claim
@@ -132,7 +144,7 @@ addresses the confound this creates for Grand Proof 1 (10.41).
 
 **Tier:** D3 (scientific / benchmark methodology)
 **Vision:** 10.41; `.claude/rules/scientific-method.md`
-**Status:** pending. **Highest severity.**
+**Status:** pending; queued next. Proposed to share one ADR with D-08 (resource parity).
 
 If MNEXA's recall path may itself call a model at decision time, condition C consumes more inference
 compute than A and B, and any improvement is confounded with extra compute. Requires an explicit parity
@@ -208,7 +220,8 @@ How v0 structurally guarantees single-agent scope so that later L2+ scopes exten
 
 **Tier:** D3 (scientific)
 **Vision:** 10.59; `.claude/rules/scientific-method.md`
-**Status:** pending. **Highest severity.**
+**Status:** pending; queued next. Proposed as its own ADR (hidden-evaluation isolation): different threat
+model, different enforcement point, independently revisable.
 
 What MNEXA is permitted to ingest, and the structural guarantee that hidden evaluation instances cannot
 enter memory. Must be locked before any experience is captured, not at benchmark time.
