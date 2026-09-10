@@ -44,7 +44,7 @@ Six decisions settled: D-01, D-08, D-09, D-17, D-21, D-22 (ADR-0002 … ADR-0006
 
 **Ten decisions settled:** D-01, D-02, D-03, D-05, D-08, D-09, D-17, D-21, D-22, D-24 (ADR-0002 … ADR-0010).
 
-**Next blocker: D-10 — recall reproducibility.** No ADR drafted; awaiting owner direction.
+**Next blocker: D-10 — recall reproducibility.** ADR-0011 proposed 2026-09-10, awaiting review.
 
 Chosen by specification impact plus upstream position, not register order:
 
@@ -214,15 +214,7 @@ rule at specification level.
 
 **Tier:** D2 (D3 where it affects experimental validity)
 **Vision:** 5.3, 5.10; `.claude/rules/scientific-method.md`
-**Status:** **NEXT BLOCKER.** Touched by ADR-0006 rule 6 (recall output must include a freshness
-determination) and by ADR-0010, which supplies `AS_OF(N)` as the reproducibility primitive — a recall is
-reproducible if reproducible as of its watermark.
-
-Blocks specification elements **12** (Context Frame contract) and **13** (Recall contract), two of the core
-loop contracts. Also **upstream of D-12 and D-13**: ADR-0010 rule 12 requires every decision to carry a
-knowledge watermark but leaves the carrier to D-10/D-12, and ADR-0010 rule 10 assigns the level-2
-presented/activated boundary jointly to D-10 and D-13. Neither can be specified while the recall contract's
-output shape is undecided.
+**Status:** ADR-0011 proposed 2026-09-10; awaiting owner review.
 
 Whether recall must be deterministic given identical memory state and Context Frame. Nondeterministic
 recall makes controlled comparison noisier and makes a failed run non-reproducible.
@@ -231,8 +223,9 @@ recall makes controlled comparison noisier and makes a failed run non-reproducib
 
 **Tier:** D3 (epistemic semantics)
 **Vision:** 3.10, 3.14, 6.21, 8.5, 8.6
-**Status:** pending. **Constrained by ADR-0006** rule 5 and M-6: staleness must not be folded into
-confidence without superseding that rule. The bootstrap question (T-2) remains fully open.
+**Status:** pending. **Constrained by ADR-0006** rule 5/M-6 (staleness must not be folded into confidence)
+and by **ADR-0011** rule 10/S-11 (retrieval scores may not become confidence, so the bootstrap cannot draw on
+ranking signals). The bootstrap question (T-2) remains fully open.
 **Vision tension — see Contradictions below.**
 
 Where a confidence value comes from at t=0, given that the vision distrusts model-asserted confidence
@@ -257,7 +250,10 @@ arrives.
 
 **Tier:** D3 (scientific)
 **Vision:** 3.12, 3.39, 5.36–5.41
-**Status:** pending; follows D-10. **Partially settled by ADR-0006** rule 6/M-8 and by **ADR-0010 rule 10**,
+**Status:** **UNBLOCKED by ADR-0011** (proposed), which supplies its input: the returned, version-pinned set
+with presented freshness, plus the retrieval-regret boundary-one computation. D-13 owns
+presented/activated/suppressed and attribution. **Partially settled by ADR-0006** rule 6/M-8 and by
+**ADR-0010 rule 10**,
 which fixes the three-level structure D-13 must implement: durably available (settled — `commit_sequence`),
 presented/activated (D-10 + D-13), actually used/attributed (D-13's attribution contract). Levels 2 and 3 must
 not collapse. ADR-0010 also makes vision 5.40's *not activated* line computable, since the watermark defines
@@ -273,8 +269,8 @@ criterion is a defect under the standing rules.
 
 **Tier:** D2
 **Vision:** 10.5, 10.11
-**Status:** pending; **shaped** by ADR-0007. The port surface operates over three canonical object types plus
-typed event append.
+**Status:** pending; **shaped** by ADR-0007 (three canonical object types plus typed event append) and by
+ADR-0011 (the recall port accepts a watermark and returns version-pinned items with completion status).
 
 The conceptual operations v0 exposes. Durable because it is the externally consumed interface and because
 10.5 makes it constitutional that agents do not see storage.
@@ -293,7 +289,8 @@ with a stated `howChecked`, at design time.
 
 **Tier:** D2
 **Vision:** 2.17, 2.20, 3.27, 10.8
-**Status:** pending
+**Status:** pending; **shaped** by ADR-0011: the recall request's namespace field is where scope isolation is
+enforced at the recall boundary.
 
 How v0 structurally guarantees single-agent scope so that later L2+ scopes extend rather than retrofit.
 
@@ -479,6 +476,23 @@ Episodes rather than revising, since establishing a new object is always the pat
 This is consolidation *behaviour* rather than episode *semantics*, and it interacts with D-07. Not decided in
 ADR-0009 because that ADR's question was construction and authority; settling targeting policy there would
 have expanded its surfaced scope.
+
+### D-27 — v0 retrieval channel set
+
+**Tier:** D2
+**Vision:** 5.6, 5.7, 5.10
+**Status:** pending. **Discovered while drafting ADR-0011; not decided there.**
+
+Vision 5.6 describes many independent activation routes — semantic, entity, temporal, causal, structural,
+procedural, outcome, risk and historical-utility. ADR-0011 records a per-item retrieval channel and permits
+future ones, but does not decide which exist in v0.
+
+This is a scope decision affecting what recall can actually do, and therefore what condition C *is* in the
+experiment. It includes the associated ranking-signal vocabulary that ADR-0011 rule 10 requires to carry
+declared algorithmic meanings.
+
+Not decided in ADR-0011 because that ADR's question was the *evidence* contract; settling which mechanisms
+produce the evidence would have expanded it from evidence to mechanism.
 
 ---
 
