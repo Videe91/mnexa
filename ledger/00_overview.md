@@ -42,6 +42,7 @@ Durable Lesson Appended          Successful Transfer
 | **10** | **Seed Growth 007** | Raw Evidence Atomization Ablation | Fresh 20 synthetic task families (`tasks_007.json`, sha256 frozen), testing Condition A (Baseline), B (Oracle Grounded Claims), C (Raw Span Grounded Claims) | 0 / 20 | **B: 15 / 20**<br>**C: 15 / 20** | **+15 (B)**<br>**+15 (C)** | **Deterministic Span Grounding achieved parity with Oracle Grounding while rejecting 40/40 (100%) adversarial ungrounded challenges** with 0 ungrounded or unsupported admissions (`all_source_evidence_equal == True`). |
 | **11** | **Seed Growth 008** | Evidence Role Boundary Ablation | Fresh 20 synthetic task families (`tasks_008.json`, sha256 frozen), testing Condition A (Baseline), B (Exact Span Grounding Only), C (Exact Span + Authoritative Role Gate) | 0 / 20 | **B: 9 / 20**<br>**C: 18 / 20** | **+9 (B)**<br>**+18 (C)** | **Evidence Role Gate doubled precision from 0.425 (B) to 0.850 (C), eliminated all 9 non-knowledge leaks, and rejected 80/80 (100%) ineligible role challenges** (`all_source_evidence_equal == True`, `all_atom_proposals_equal == True`). |
 | **12** | **Seed Growth 009** | Evidence Atomicity Boundary Ablation | Fresh 20 synthetic task families (`tasks_009.json`, sha256 frozen), testing Condition A (Role Gate Only), B (Role Gate + Atomicity Gate) | 0 / 20 | **A: 19 / 20**<br>**B: 19 / 20** | **+19 (A)**<br>**+19 (B)** | **Atomicity Gate eliminated 100% (40/40) of compound atom proposals, raised atomic precision from 0.6667 (A) to 1.0000 (B), and compressed memory context by 40.7% (70.3 to 41.65 words)** (`all_source_evidence_equal == True`, `all_atom_proposals_equal == True`). |
+| **13** | **Seed Growth 010** | Autonomous Atomic Boundary Discovery Ablation | Fresh 20 synthetic task families (`tasks_010.json`, sha256 frozen across 5 syntax styles), testing Condition A (Oracle Canonical Boundaries), B (Autonomous Boundary Discovery) | 0 / 20 | **A: 18 / 20**<br>**B: 14 / 20** | **+18 (A)**<br>**+14 (B)** | **Autonomous Discovery achieved 100% exact match in 8/20 families with 100% physical ancestry validity, 0 invented spans, 0 non-authoritative spans, and 0 overlapping spans** (`all_source_evidence_equal == True`). Isolated boundary normalization as the remaining frontier. |
 
 ---
 
@@ -59,6 +60,8 @@ Durable Lesson Appended          Successful Transfer
 10. [`10_seed_growth_007.md`](file:///Users/vineetpandey/Desktop/mnexa/ledger/10_seed_growth_007.md): Fresh 20-family controlled raw evidence atomization ablation & deterministic span grounding gate evaluation.
 11. [`11_seed_growth_008.md`](file:///Users/vineetpandey/Desktop/mnexa/ledger/11_seed_growth_008.md): Fresh 20-family controlled evidence-role ablation & authoritative role gate evaluation.
 12. [`12_seed_growth_009.md`](file:///Users/vineetpandey/Desktop/mnexa/ledger/12_seed_growth_009.md): Fresh 20-family controlled evidence-atomicity ablation & atomic boundary gate evaluation.
+13. [`13_seed_growth_010.md`](file:///Users/vineetpandey/Desktop/mnexa/ledger/13_seed_growth_010.md): Fresh 20-family controlled autonomous boundary discovery ablation & runtime source validation gate evaluation.
+
 
 
 
