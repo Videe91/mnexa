@@ -39,6 +39,7 @@ Durable Lesson Appended          Successful Transfer
 | **07** | **Seed Growth 004** | Fresh 3-Way Ablation | Fresh 20 synthetic task families (`tasks_004.json`, sha256 frozen), testing Condition A (Baseline), B (Current MNEXA), C (MNEXA + Constraint Fidelity Prompt) | 0 / 20 | **B: 17 / 20**<br>**C: 19 / 20** | **+17 (B)**<br>**+19 (C)** | **Constraint fidelity jumped from 10% (B) to 95% (C)** with identical memory (`all_b_c_memory_equal == True`). Closed the reasoning seat information loss gap. |
 | **08** | **Seed Growth 005** | Consolidation Ablation | Fresh 20 synthetic task families (`tasks_005.json`, sha256 frozen), testing Condition A (Baseline), B (Current Lossless Consolidation), C (Evidence-Disciplined Consolidation) | 0 / 20 | **B: 17 / 20**<br>**C: 20 / 20** | **+17 (B)**<br>**+20 (C)** | **Contamination dropped from 60% (B) to 0% (C)** while retaining 100% correct knowledge, achieving **20/20 (100%) transfer success** (`all_source_evidence_equal == True`). |
 | **09** | **Seed Growth 006** | Claim Ancestry Ablation | Fresh 20 synthetic task families (`tasks_006.json`, sha256 frozen), testing Condition A (Baseline), B (Evidence-Disciplined Consolidation), C (Claim-Ancestry Closed-World Admission) | 0 / 20 | **B: 17 / 20**<br>**C: 17 / 20** | **+17 (B)**<br>**+17 (C)** | **Closed-World Admission Gate admitted 80/80 (100%) supported claims with 0 unsupported claims.** Enforced *"No knowledge without ancestry"* by shifting memory authority to runtime admission (`all_source_evidence_equal == True`). |
+| **10** | **Seed Growth 007** | Raw Evidence Atomization Ablation | Fresh 20 synthetic task families (`tasks_007.json`, sha256 frozen), testing Condition A (Baseline), B (Oracle Grounded Claims), C (Raw Span Grounded Claims) | 0 / 20 | **B: 15 / 20**<br>**C: 15 / 20** | **+15 (B)**<br>**+15 (C)** | **Deterministic Span Grounding achieved parity with Oracle Grounding while rejecting 40/40 (100%) adversarial ungrounded challenges** with 0 ungrounded or unsupported admissions (`all_source_evidence_equal == True`). |
 
 ---
 
@@ -53,6 +54,8 @@ Durable Lesson Appended          Successful Transfer
 7. [`07_seed_growth_004.md`](file:///Users/vineetpandey/Desktop/mnexa/ledger/07_seed_growth_004.md): Fresh 20-family 3-way controlled ablation benchmark & constraint fidelity instruction evaluation.
 8. [`08_seed_growth_005.md`](file:///Users/vineetpandey/Desktop/mnexa/ledger/08_seed_growth_005.md): Fresh 20-family controlled consolidation ablation & evidence-disciplined consolidation evaluation.
 9. [`09_seed_growth_006.md`](file:///Users/vineetpandey/Desktop/mnexa/ledger/09_seed_growth_006.md): Fresh 20-family controlled claim ancestry ablation & closed-world admission gate evaluation.
+10. [`10_seed_growth_007.md`](file:///Users/vineetpandey/Desktop/mnexa/ledger/10_seed_growth_007.md): Fresh 20-family controlled raw evidence atomization ablation & deterministic span grounding gate evaluation.
+
 
 
 
