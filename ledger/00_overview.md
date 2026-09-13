@@ -37,6 +37,7 @@ Durable Lesson Appended          Successful Transfer
 | **05** | **Seed Growth 002R** | Post-Hoc Diagnostic | Offline regrade of 002 with regex matching "each of the six parts" | 1 / 5 | 4 / 5 | +3 | Helios passed; Saffron remained a genuine failure (reasoning seat dropped `once`). |
 | **06** | **Seed Growth 003** | Frozen Benchmark | Fresh 10 synthetic task families (`tasks_003.json`, sha256 frozen) | 0 / 10 | **7 / 10** | **+7** | **+7 net improvement** on unseen 10-family taskset. Pinpointed failure boundary to decision-seat prohibition omissions. |
 | **07** | **Seed Growth 004** | Fresh 3-Way Ablation | Fresh 20 synthetic task families (`tasks_004.json`, sha256 frozen), testing Condition A (Baseline), B (Current MNEXA), C (MNEXA + Constraint Fidelity Prompt) | 0 / 20 | **B: 17 / 20**<br>**C: 19 / 20** | **+17 (B)**<br>**+19 (C)** | **Constraint fidelity jumped from 10% (B) to 95% (C)** with identical memory (`all_b_c_memory_equal == True`). Closed the reasoning seat information loss gap. |
+| **08** | **Seed Growth 005** | Consolidation Ablation | Fresh 20 synthetic task families (`tasks_005.json`, sha256 frozen), testing Condition A (Baseline), B (Current Lossless Consolidation), C (Evidence-Disciplined Consolidation) | 0 / 20 | **B: 17 / 20**<br>**C: 20 / 20** | **+17 (B)**<br>**+20 (C)** | **Contamination dropped from 60% (B) to 0% (C)** while retaining 100% correct knowledge, achieving **20/20 (100%) transfer success** (`all_source_evidence_equal == True`). |
 
 ---
 
@@ -49,4 +50,6 @@ Durable Lesson Appended          Successful Transfer
 5. [`05_seed_growth_002r.md`](file:///Users/vineetpandey/Desktop/mnexa/ledger/05_seed_growth_002r.md): Offline diagnostic regrade of 002 (`experiments/graders_002r.json`).
 6. [`06_seed_growth_003.md`](file:///Users/vineetpandey/Desktop/mnexa/ledger/06_seed_growth_003.md): Fresh 10-family frozen benchmark execution & full root cause failure analysis.
 7. [`07_seed_growth_004.md`](file:///Users/vineetpandey/Desktop/mnexa/ledger/07_seed_growth_004.md): Fresh 20-family 3-way controlled ablation benchmark & constraint fidelity instruction evaluation.
+8. [`08_seed_growth_005.md`](file:///Users/vineetpandey/Desktop/mnexa/ledger/08_seed_growth_005.md): Fresh 20-family controlled consolidation ablation & evidence-disciplined consolidation evaluation.
+
 
