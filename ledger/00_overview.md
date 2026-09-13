@@ -43,6 +43,7 @@ Durable Lesson Appended          Successful Transfer
 | **11** | **Seed Growth 008** | Evidence Role Boundary Ablation | Fresh 20 synthetic task families (`tasks_008.json`, sha256 frozen), testing Condition A (Baseline), B (Exact Span Grounding Only), C (Exact Span + Authoritative Role Gate) | 0 / 20 | **B: 9 / 20**<br>**C: 18 / 20** | **+9 (B)**<br>**+18 (C)** | **Evidence Role Gate doubled precision from 0.425 (B) to 0.850 (C), eliminated all 9 non-knowledge leaks, and rejected 80/80 (100%) ineligible role challenges** (`all_source_evidence_equal == True`, `all_atom_proposals_equal == True`). |
 | **12** | **Seed Growth 009** | Evidence Atomicity Boundary Ablation | Fresh 20 synthetic task families (`tasks_009.json`, sha256 frozen), testing Condition A (Role Gate Only), B (Role Gate + Atomicity Gate) | 0 / 20 | **A: 19 / 20**<br>**B: 19 / 20** | **+19 (A)**<br>**+19 (B)** | **Atomicity Gate eliminated 100% (40/40) of compound atom proposals, raised atomic precision from 0.6667 (A) to 1.0000 (B), and compressed memory context by 40.7% (70.3 to 41.65 words)** (`all_source_evidence_equal == True`, `all_atom_proposals_equal == True`). |
 | **13** | **Seed Growth 010** | Autonomous Atomic Boundary Discovery Ablation | Fresh 20 synthetic task families (`tasks_010.json`, sha256 frozen across 5 syntax styles), testing Condition A (Oracle Canonical Boundaries), B (Autonomous Boundary Discovery) | 0 / 20 | **A: 18 / 20**<br>**B: 14 / 20** | **+18 (A)**<br>**+14 (B)** | **Autonomous Discovery achieved 100% exact match in 8/20 families with 100% physical ancestry validity, 0 invented spans, 0 non-authoritative spans, and 0 overlapping spans** (`all_source_evidence_equal == True`). Isolated boundary normalization as the remaining frontier. |
+| **14** | **Seed Growth 011** | Grounded Structured Proposition Ablation | Fresh 20 synthetic task families (`tasks_011.json`, sha256 frozen across 5 syntax styles), testing Condition A (Flat Autonomous Atomization), B (Grounded Structured Proposition) | 0 / 20 | **A: 13 / 20**<br>**B: 14 / 20** | **+13 (A)**<br>**+14 (B)** | **Structured Propositions increased mean nucleus recall from 0.3500 (A) to 0.5750 (B) (+64.3%) and precision from 0.3583 to 0.6833 (+90.7%) with 0.9375 qualifier recall and 100% physical ancestry validity** (`all_source_evidence_equal == True`). Decoupled support spans from operational nuclei without severing provenance. |
 
 ---
 
@@ -61,6 +62,8 @@ Durable Lesson Appended          Successful Transfer
 11. [`11_seed_growth_008.md`](file:///Users/vineetpandey/Desktop/mnexa/ledger/11_seed_growth_008.md): Fresh 20-family controlled evidence-role ablation & authoritative role gate evaluation.
 12. [`12_seed_growth_009.md`](file:///Users/vineetpandey/Desktop/mnexa/ledger/12_seed_growth_009.md): Fresh 20-family controlled evidence-atomicity ablation & atomic boundary gate evaluation.
 13. [`13_seed_growth_010.md`](file:///Users/vineetpandey/Desktop/mnexa/ledger/13_seed_growth_010.md): Fresh 20-family controlled autonomous boundary discovery ablation & runtime source validation gate evaluation.
+14. [`14_seed_growth_011.md`](file:///Users/vineetpandey/Desktop/mnexa/ledger/14_seed_growth_011.md): Fresh 20-family controlled grounded structured proposition ablation & nucleus/qualifier extraction gate evaluation.
+
 
 
 
