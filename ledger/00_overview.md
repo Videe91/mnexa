@@ -40,6 +40,7 @@ Durable Lesson Appended          Successful Transfer
 | **08** | **Seed Growth 005** | Consolidation Ablation | Fresh 20 synthetic task families (`tasks_005.json`, sha256 frozen), testing Condition A (Baseline), B (Current Lossless Consolidation), C (Evidence-Disciplined Consolidation) | 0 / 20 | **B: 17 / 20**<br>**C: 20 / 20** | **+17 (B)**<br>**+20 (C)** | **Contamination dropped from 60% (B) to 0% (C)** while retaining 100% correct knowledge, achieving **20/20 (100%) transfer success** (`all_source_evidence_equal == True`). |
 | **09** | **Seed Growth 006** | Claim Ancestry Ablation | Fresh 20 synthetic task families (`tasks_006.json`, sha256 frozen), testing Condition A (Baseline), B (Evidence-Disciplined Consolidation), C (Claim-Ancestry Closed-World Admission) | 0 / 20 | **B: 17 / 20**<br>**C: 17 / 20** | **+17 (B)**<br>**+17 (C)** | **Closed-World Admission Gate admitted 80/80 (100%) supported claims with 0 unsupported claims.** Enforced *"No knowledge without ancestry"* by shifting memory authority to runtime admission (`all_source_evidence_equal == True`). |
 | **10** | **Seed Growth 007** | Raw Evidence Atomization Ablation | Fresh 20 synthetic task families (`tasks_007.json`, sha256 frozen), testing Condition A (Baseline), B (Oracle Grounded Claims), C (Raw Span Grounded Claims) | 0 / 20 | **B: 15 / 20**<br>**C: 15 / 20** | **+15 (B)**<br>**+15 (C)** | **Deterministic Span Grounding achieved parity with Oracle Grounding while rejecting 40/40 (100%) adversarial ungrounded challenges** with 0 ungrounded or unsupported admissions (`all_source_evidence_equal == True`). |
+| **11** | **Seed Growth 008** | Evidence Role Boundary Ablation | Fresh 20 synthetic task families (`tasks_008.json`, sha256 frozen), testing Condition A (Baseline), B (Exact Span Grounding Only), C (Exact Span + Authoritative Role Gate) | 0 / 20 | **B: 9 / 20**<br>**C: 18 / 20** | **+9 (B)**<br>**+18 (C)** | **Evidence Role Gate doubled precision from 0.425 (B) to 0.850 (C), eliminated all 9 non-knowledge leaks, and rejected 80/80 (100%) ineligible role challenges** (`all_source_evidence_equal == True`, `all_atom_proposals_equal == True`). |
 
 ---
 
@@ -55,6 +56,8 @@ Durable Lesson Appended          Successful Transfer
 8. [`08_seed_growth_005.md`](file:///Users/vineetpandey/Desktop/mnexa/ledger/08_seed_growth_005.md): Fresh 20-family controlled consolidation ablation & evidence-disciplined consolidation evaluation.
 9. [`09_seed_growth_006.md`](file:///Users/vineetpandey/Desktop/mnexa/ledger/09_seed_growth_006.md): Fresh 20-family controlled claim ancestry ablation & closed-world admission gate evaluation.
 10. [`10_seed_growth_007.md`](file:///Users/vineetpandey/Desktop/mnexa/ledger/10_seed_growth_007.md): Fresh 20-family controlled raw evidence atomization ablation & deterministic span grounding gate evaluation.
+11. [`11_seed_growth_008.md`](file:///Users/vineetpandey/Desktop/mnexa/ledger/11_seed_growth_008.md): Fresh 20-family controlled evidence-role ablation & authoritative role gate evaluation.
+
 
 
 
