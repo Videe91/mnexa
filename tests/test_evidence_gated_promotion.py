@@ -531,3 +531,166 @@ def test_auto_promotion_is_repeat_safe_without_caller_key(
         ==
         1
     )
+
+
+def test_new_independent_support_versions_existing_belief(
+    tmp_path,
+):
+    m = _seed(
+        tmp_path
+    )
+
+    lesson = (
+        "When Payments API returns 429, "
+        "retry with exponential backoff."
+    )
+
+    # -------------------------------------------------------------
+    # Evidence A
+    # -------------------------------------------------------------
+
+    decision_a, _ = (
+        _decision_with_outcome(
+            m,
+            decision_text=(
+                "Retry immediately."
+            ),
+            outcome_text=(
+                "Request flooding occurred."
+            ),
+        )
+    )
+
+    proposal_a = _proposal(
+        m,
+        decision_a.object_id,
+        lesson,
+    )
+
+    # -------------------------------------------------------------
+    # Evidence B
+    # -------------------------------------------------------------
+
+    decision_b, _ = (
+        _decision_with_outcome(
+            m,
+            decision_text=(
+                "Retry immediately again."
+            ),
+            outcome_text=(
+                "Rate-limit amplification occurred."
+            ),
+        )
+    )
+
+    proposal_b = _proposal(
+        m,
+        decision_b.object_id,
+        lesson,
+    )
+
+    # A + B reaches quorum and creates belief v1.
+    belief_v1 = (
+        m.promote_lesson_if_supported(
+            proposal_b.object_id
+        )
+    )
+
+    assert (
+        belief_v1.version
+        ==
+        1
+    )
+
+    assert set(
+        belief_v1.refs
+    ) == {
+        proposal_a.object_id,
+        proposal_b.object_id,
+    }
+
+    # -------------------------------------------------------------
+    # Evidence C arrives later.
+    # -------------------------------------------------------------
+
+    decision_c, _ = (
+        _decision_with_outcome(
+            m,
+            decision_text=(
+                "Retry without waiting."
+            ),
+            outcome_text=(
+                "A third independent incident "
+                "confirmed request flooding."
+            ),
+        )
+    )
+
+    proposal_c = _proposal(
+        m,
+        decision_c.object_id,
+        lesson,
+    )
+
+    # This must strengthen the SAME belief,
+    # not conflict and not create a new belief identity.
+    belief_v2 = (
+        m.promote_lesson_if_supported(
+            proposal_c.object_id
+        )
+    )
+
+    assert (
+        belief_v2.object_id
+        ==
+        belief_v1.object_id
+    )
+
+    assert (
+        belief_v2.version
+        ==
+        2
+    )
+
+    assert (
+        belief_v2.seq
+        >
+        belief_v1.seq
+    )
+
+    assert set(
+        belief_v2.refs
+    ) == {
+        proposal_a.object_id,
+        proposal_b.object_id,
+        proposal_c.object_id,
+    }
+
+    # Both versions remain durable history.
+    rows = (
+        m.db.execute(
+            """
+            SELECT *
+            FROM commits
+
+            WHERE
+                plane='interpretive'
+                AND object_id=?
+
+            ORDER BY version
+            """,
+            (
+                belief_v1.object_id,
+            ),
+        )
+        .fetchall()
+    )
+
+    assert [
+        row["version"]
+        for row in rows
+    ] == [
+        1,
+        2,
+    ]
+

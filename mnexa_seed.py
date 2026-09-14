@@ -1968,35 +1968,75 @@ class MnexaSeed:
         required_distinct_decisions: int = 2,
     ):
         """
-        Automatically promote a lesson proposal into active interpretive memory
-        if at least required_distinct_decisions distinct DecisionMade events
-        have valid LessonProposed events matching the normalized lesson text.
+        Promote or reinforce a lesson when enough distinct
+        DecisionMade -> OutcomeObserved evidence chains support it.
+
+        Same normalized lesson:
+            = same belief identity
+
+        Same evidence set:
+            = same belief version
+
+        New independent evidence:
+            = new version of the same belief
         """
-        row = self.db.execute(
-            """
-            SELECT *
-            FROM commits
-            WHERE object_id=?
-            """,
-            (proposal_id,),
-        ).fetchone()
+
+        row = (
+            self.db.execute(
+                """
+                SELECT *
+                FROM commits
+                WHERE object_id=?
+                """,
+                (
+                    proposal_id,
+                ),
+            )
+            .fetchone()
+        )
 
         if not row:
-            raise KeyError(proposal_id)
+            raise KeyError(
+                proposal_id
+            )
 
-        target_proposal = self._item(row)
+        target_proposal = (
+            self._item(
+                row
+            )
+        )
 
         if (
-            target_proposal.plane != "historical"
-            or target_proposal.kind != "LessonProposed"
+            target_proposal.plane
+            !=
+            "historical"
+            or
+            target_proposal.kind
+            !=
+            "LessonProposed"
         ):
-            raise ValueError("promotion requires a LessonProposed event")
+            raise ValueError(
+                "promotion requires "
+                "a LessonProposed event"
+            )
 
-        target_norm = self._normalize_lesson(target_proposal.text)
+        target_norm = (
+            self._normalize_lesson(
+                target_proposal.text
+            )
+        )
+
+        # -------------------------------------------------------------
+        # Find every valid proposal for the same normalized lesson.
+        # -------------------------------------------------------------
 
         all_proposals = [
-            self._item(r)
-            for r in self.db.execute(
+            self._item(
+                r
+            )
+
+            for r
+            in self.db.execute(
                 """
                 SELECT *
                 FROM commits
@@ -2006,53 +2046,275 @@ class MnexaSeed:
             )
         ]
 
-        matching_proposals_by_decision = {}
-        proposal_ids_by_decision = {}
+        # One canonical supporting proposal per distinct decision.
+        #
+        # Multiple proposals generated from the same DecisionMade
+        # do not make the evidence stronger.
+        matching_by_decision = {}
 
-        for p in all_proposals:
-            if self._normalize_lesson(p.text) != target_norm:
+        for proposal in all_proposals:
+
+            if (
+                self._normalize_lesson(
+                    proposal.text
+                )
+                !=
+                target_norm
+            ):
                 continue
 
-            support = self._valid_lesson_support(p)
+            support = (
+                self._valid_lesson_support(
+                    proposal
+                )
+            )
+
             if not support:
                 continue
 
             decision_id, _ = support
-            if decision_id not in matching_proposals_by_decision:
-                matching_proposals_by_decision[decision_id] = p
-                proposal_ids_by_decision[decision_id] = [p.object_id]
-            else:
-                proposal_ids_by_decision[decision_id].append(p.object_id)
 
-        if len(matching_proposals_by_decision) < required_distinct_decisions:
+            # Because all_proposals is ordered by seq,
+            # the earliest valid proposal becomes the canonical
+            # evidence representative for this decision.
+            if (
+                decision_id
+                not in
+                matching_by_decision
+            ):
+                matching_by_decision[
+                    decision_id
+                ] = proposal
+
+        if (
+            len(
+                matching_by_decision
+            )
+            <
+            required_distinct_decisions
+        ):
             return None
 
-        all_matching_proposal_ids = []
-        all_entities = []
+        supporting_proposals = tuple(
+            matching_by_decision.values()
+        )
 
-        for p_list in proposal_ids_by_decision.values():
-            all_matching_proposal_ids.extend(p_list)
+        supporting_proposal_ids = tuple(
+            proposal.object_id
 
-        for p in matching_proposals_by_decision.values():
-            all_entities.extend(p.entities)
+            for proposal
+            in supporting_proposals
+        )
 
-        seen_ent = set()
-        dedup_entities = []
-        for e in all_entities:
-            if e not in seen_ent:
-                seen_ent.add(e)
-                dedup_entities.append(e)
+        # -------------------------------------------------------------
+        # Aggregate entities deterministically.
+        # -------------------------------------------------------------
 
+        entities = []
+        seen_entities = set()
+
+        for proposal in supporting_proposals:
+
+            for entity in proposal.entities:
+
+                if (
+                    entity
+                    in
+                    seen_entities
+                ):
+                    continue
+
+                seen_entities.add(
+                    entity
+                )
+
+                entities.append(
+                    entity
+                )
+
+        # -------------------------------------------------------------
+        # Stable proposition identity.
+        #
+        # Lesson identity depends only on normalized proposition text.
+        # Evidence growth must NOT create a different belief object.
+        # -------------------------------------------------------------
+
+        lesson_sha256 = (
+            hashlib
+            .sha256(
+                target_norm.encode(
+                    "utf-8"
+                )
+            )
+            .hexdigest()
+        )
+
+        # -------------------------------------------------------------
+        # Backward compatibility with the v0 implementation we just
+        # replaced.
+        #
+        # If this lesson already produced a belief using the original:
+        #
+        #     auto-promote:<lesson hash>
+        #
+        # reuse that belief's existing object_id rather than starting
+        # a second belief lineage.
+        # -------------------------------------------------------------
+
+        legacy_key = (
+            f"auto-promote:"
+            f"{lesson_sha256}"
+        )
+
+        legacy_mapping = (
+            self.db.execute(
+                """
+                SELECT
+                    commit_object_id
+
+                FROM write_idempotency
+
+                WHERE idempotency_key=?
+                """,
+                (
+                    legacy_key,
+                ),
+            )
+            .fetchone()
+        )
+
+        if legacy_mapping:
+            belief_object_id = (
+                legacy_mapping[
+                    "commit_object_id"
+                ]
+            )
+
+        else:
+            belief_object_id = (
+                f"i_auto_"
+                f"{lesson_sha256}"
+            )
+
+        # -------------------------------------------------------------
+        # Inspect current belief head.
+        # -------------------------------------------------------------
+
+        head_row = (
+            self.db.execute(
+                """
+                SELECT *
+                FROM commits
+
+                WHERE
+                    plane='interpretive'
+                    AND object_id=?
+
+                ORDER BY version DESC
+
+                LIMIT 1
+                """,
+                (
+                    belief_object_id,
+                ),
+            )
+            .fetchone()
+        )
+
+        current_head = (
+            self._item(
+                head_row
+            )
+            if head_row
+            else None
+        )
+
+        # -------------------------------------------------------------
+        # Same proposition + same independent evidence set
+        # means nothing new was learned.
+        #
+        # Return the existing version.
+        # -------------------------------------------------------------
+
+        if current_head is not None:
+
+            if (
+                set(
+                    current_head.refs
+                )
+                ==
+                set(
+                    supporting_proposal_ids
+                )
+            ):
+                return current_head
+
+        # -------------------------------------------------------------
+        # Evidence snapshot identity.
+        #
+        # Unlike lesson identity, this MUST change when genuinely new
+        # independent supporting evidence arrives.
+        # -------------------------------------------------------------
+
+        evidence_payload = (
+            json.dumps(
+                supporting_proposal_ids,
+                separators=(
+                    ",",
+                    ":",
+                ),
+                ensure_ascii=False,
+            )
+        )
+
+        evidence_sha256 = (
+            hashlib
+            .sha256(
+                evidence_payload.encode(
+                    "utf-8"
+                )
+            )
+            .hexdigest()
+        )
+
+        # Different evidence snapshot -> different logical write.
+        #
+        # Same evidence snapshot retry -> same key.
         auto_key = (
-            f"auto-promote:{hashlib.sha256(target_norm.encode('utf-8')).hexdigest()}"
+            f"auto-promote-v2:"
+            f"{lesson_sha256}:"
+            f"{evidence_sha256}"
+        )
+
+        # Once a belief exists, preserve its original canonical
+        # surface wording. New evidence strengthens the belief;
+        # it does not silently rewrite the proposition.
+        belief_text = (
+            current_head.text
+            if current_head
+            is not None
+            else
+            target_proposal.text
         )
 
         return self.learn(
-            target_proposal.text,
-            tuple(dedup_entities),
-            tuple(all_matching_proposal_ids),
-            idempotency_key=auto_key,
+            belief_text,
+
+            tuple(
+                entities
+            ),
+
+            supporting_proposal_ids,
+
+            object_id=(
+                belief_object_id
+            ),
+
+            idempotency_key=(
+                auto_key
+            ),
         )
+
 
     # -----------------------------------------------------------------
     # CONSOLIDATION
