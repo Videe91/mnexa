@@ -1692,6 +1692,216 @@ class MnexaSeed:
         )
 
     # -----------------------------------------------------------------
+    # LESSON PROPOSAL
+    # -----------------------------------------------------------------
+
+    def propose_lesson(
+        self,
+        decision_id: str,
+        lesson_builder: Callable[
+            [str],
+            str,
+        ],
+    ):
+        """
+        Produce a candidate lesson from historical decision/outcome
+        evidence.
+
+        The lesson is recorded as historical evidence only.
+
+        It does NOT become searchable interpretive memory here.
+        """
+
+        drow = (
+            self.db.execute(
+                """
+                SELECT *
+                FROM commits
+                WHERE object_id=?
+                """,
+                (
+                    decision_id,
+                ),
+            )
+            .fetchone()
+        )
+
+        if not drow:
+            raise KeyError(
+                decision_id
+            )
+
+        decision = (
+            self._item(
+                drow
+            )
+        )
+
+        outcomes = [
+            self._item(
+                row
+            )
+
+            for row
+            in self.db.execute(
+                """
+                SELECT *
+                FROM commits
+                WHERE kind='OutcomeObserved'
+                ORDER BY seq
+                """
+            )
+
+            if decision_id
+            in json.loads(
+                row["refs"]
+            )
+        ]
+
+        if not outcomes:
+            raise ValueError(
+                "no observed outcome"
+            )
+
+        evidence = (
+            "DECISION: "
+            + decision.text
+            + "\n"
+            + "\n".join(
+                (
+                    "OUTCOME: "
+                    + outcome.text
+                )
+
+                for outcome
+                in outcomes
+            )
+        )
+
+        # External/model cognition proposes meaning.
+        lesson = (
+            lesson_builder(
+                evidence
+            )
+            .strip()
+        )
+
+        if not lesson:
+            raise ValueError(
+                "empty lesson"
+            )
+
+        source_ids = (
+            decision_id,
+            *(
+                outcome.object_id
+                for outcome
+                in outcomes
+            ),
+        )
+
+        # Historical proposal only.
+        #
+        # This deliberately does NOT call self.learn().
+        return self.event(
+            "LessonProposed",
+
+            lesson,
+
+            decision.entities,
+
+            refs=(
+                source_ids
+            ),
+
+            metadata={
+                "proposal_for": (
+                    decision_id
+                ),
+
+                "outcome_count": (
+                    len(
+                        outcomes
+                    )
+                ),
+
+                "authority": (
+                    "proposal_only"
+                ),
+            },
+        )
+
+    # -----------------------------------------------------------------
+    # LESSON PROMOTION
+    # -----------------------------------------------------------------
+
+    def promote_lesson(
+        self,
+        proposal_id: str,
+        *,
+        idempotency_key=None,
+    ):
+        """
+        Explicitly promote a historical LessonProposed event into
+        searchable interpretive memory.
+
+        Promotion is separate from proposal generation.
+        """
+
+        row = (
+            self.db.execute(
+                """
+                SELECT *
+                FROM commits
+                WHERE object_id=?
+                """,
+                (
+                    proposal_id,
+                ),
+            )
+            .fetchone()
+        )
+
+        if not row:
+            raise KeyError(
+                proposal_id
+            )
+
+        proposal = (
+            self._item(
+                row
+            )
+        )
+
+        if (
+            proposal.plane
+            !=
+            "historical"
+            or
+            proposal.kind
+            !=
+            "LessonProposed"
+        ):
+            raise ValueError(
+                "promotion requires "
+                "a LessonProposed event"
+            )
+
+        return self.learn(
+            proposal.text,
+
+            proposal.entities,
+
+            (
+                proposal.object_id,
+            ),
+
+            idempotency_key=(
+                idempotency_key
+            ),
+        )
+
+    # -----------------------------------------------------------------
     # CONSOLIDATION
     # -----------------------------------------------------------------
 
