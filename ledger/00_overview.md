@@ -108,4 +108,6 @@ Durable Lesson Appended          Successful Transfer
 35. [`35_ledger_failure_idempotency_durability.md`](file:///Users/vineetpandey/Desktop/mnexa/ledger/35_ledger_failure_idempotency_durability.md): ADR-0018 logical-write idempotency key & atomic SQLite transaction gate verification.
 36. [`36_lesson_proposal_promotion.md`](file:///Users/vineetpandey/Desktop/mnexa/ledger/36_lesson_proposal_promotion.md): Two-stage epistemic memory pipeline implementation & proposal/promotion gate verification.
 37. [`37_evidence_gated_promotion.md`](file:///Users/vineetpandey/Desktop/mnexa/ledger/37_evidence_gated_promotion.md): Evidence-gated automatic promotion architecture & v0 quorum verification.
+38. [`38_belief_contradiction_contestation.md`](file:///Users/vineetpandey/Desktop/mnexa/ledger/38_belief_contradiction_contestation.md): Epistemic contradiction proposal, evidence-gated contestation, and recall suppression.
+
 

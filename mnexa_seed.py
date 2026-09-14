@@ -755,6 +755,7 @@ class MnexaSeed:
         source_record_ids=(),
         object_id=None,
         *,
+        metadata=None,
         idempotency_key=None,
     ):
         # Preserve whether identity was caller-selected.
@@ -807,6 +808,8 @@ class MnexaSeed:
 
             entities,
             source_record_ids,
+
+            metadata=metadata,
 
             searchable=True,
 
@@ -878,13 +881,39 @@ class MnexaSeed:
             ),
         ).fetchall()
 
-        return [
-            self._item(x)
-            for x in (
-                *historical,
-                *heads,
+        visible_heads = []
+
+        for row in heads:
+
+            item = (
+                self._item(
+                    row
+                )
             )
-        ]
+
+            # A contested head means the belief remains durable
+            # history but is not safe for ordinary active recall.
+            if (
+                item.metadata.get(
+                    "status"
+                )
+                ==
+                "contested"
+            ):
+                continue
+
+            visible_heads.append(
+                item
+            )
+
+        return [
+            self._item(
+                row
+            )
+            for row
+            in historical
+        ] + visible_heads
+
 
     # -----------------------------------------------------------------
     # RECALL
@@ -2314,6 +2343,765 @@ class MnexaSeed:
                 auto_key
             ),
         )
+
+    # -----------------------------------------------------------------
+    # CONTRADICTION PROPOSAL
+    # -----------------------------------------------------------------
+
+    def propose_contradiction(
+        self,
+        belief_id: str,
+        decision_id: str,
+        contradiction_builder: Callable[
+            [str],
+            str,
+        ],
+        *,
+        idempotency_key=None,
+    ):
+        """
+        Propose that real outcome evidence contradicts the current
+        version of an existing belief.
+
+        This creates historical evidence only.
+
+        It does NOT itself weaken, delete, replace, or contest
+        the belief.
+        """
+
+        # -------------------------------------------------------------
+        # Resolve the current belief head.
+        # -------------------------------------------------------------
+
+        belief_row = (
+            self.db.execute(
+                """
+                SELECT *
+                FROM commits
+
+                WHERE
+                    plane='interpretive'
+                    AND object_id=?
+
+                ORDER BY version DESC
+
+                LIMIT 1
+                """,
+                (
+                    belief_id,
+                ),
+            )
+            .fetchone()
+        )
+
+        if not belief_row:
+            raise KeyError(
+                belief_id
+            )
+
+        belief = (
+            self._item(
+                belief_row
+            )
+        )
+
+        if belief.kind != "belief":
+            raise ValueError(
+                "target must be a belief"
+            )
+
+        # -------------------------------------------------------------
+        # Resolve the decision.
+        # -------------------------------------------------------------
+
+        decision_row = (
+            self.db.execute(
+                """
+                SELECT *
+                FROM commits
+                WHERE object_id=?
+                """,
+                (
+                    decision_id,
+                ),
+            )
+            .fetchone()
+        )
+
+        if not decision_row:
+            raise KeyError(
+                decision_id
+            )
+
+        decision = (
+            self._item(
+                decision_row
+            )
+        )
+
+        if (
+            decision.kind
+            !=
+            "DecisionMade"
+        ):
+            raise ValueError(
+                "contradiction evidence "
+                "requires DecisionMade"
+            )
+
+        # -------------------------------------------------------------
+        # Gather all real outcomes directly linked to this decision.
+        # -------------------------------------------------------------
+
+        outcomes = [
+            self._item(
+                row
+            )
+
+            for row
+            in self.db.execute(
+                """
+                SELECT *
+                FROM commits
+                WHERE kind='OutcomeObserved'
+                ORDER BY seq
+                """
+            )
+
+            if decision_id
+            in json.loads(
+                row["refs"]
+            )
+        ]
+
+        if not outcomes:
+            raise ValueError(
+                "no observed outcome"
+            )
+
+        evidence = (
+            "BELIEF: "
+            + belief.text
+            + "\n"
+            + "DECISION: "
+            + decision.text
+            + "\n"
+            + "\n".join(
+                (
+                    "OUTCOME: "
+                    + outcome.text
+                )
+
+                for outcome
+                in outcomes
+            )
+        )
+
+        # -------------------------------------------------------------
+        # Semantic contradiction judgment remains external.
+        # -------------------------------------------------------------
+
+        contradiction = (
+            contradiction_builder(
+                evidence
+            )
+            .strip()
+        )
+
+        if not contradiction:
+            raise ValueError(
+                "empty contradiction"
+            )
+
+        source_ids = (
+            belief.object_id,
+            decision.object_id,
+            *(
+                outcome.object_id
+
+                for outcome
+                in outcomes
+            ),
+        )
+
+        return self.event(
+            "ContradictionProposed",
+
+            contradiction,
+
+            tuple(
+                dict.fromkeys(
+                    (
+                        *belief.entities,
+                        *decision.entities,
+                    )
+                )
+            ),
+
+            refs=(
+                source_ids
+            ),
+
+            metadata={
+                "target_belief_id": (
+                    belief.object_id
+                ),
+
+                "target_belief_version": (
+                    belief.version
+                ),
+
+                "target_belief_seq": (
+                    belief.seq
+                ),
+
+                "proposal_for": (
+                    decision.object_id
+                ),
+
+                "outcome_count": (
+                    len(
+                        outcomes
+                    )
+                ),
+
+                "authority": (
+                    "proposal_only"
+                ),
+            },
+
+            idempotency_key=(
+                idempotency_key
+            ),
+        )
+
+    # -----------------------------------------------------------------
+    # CONTRADICTION ANCESTRY VALIDATION
+    # -----------------------------------------------------------------
+
+    def _valid_contradiction_support(
+        self,
+        proposal_item,
+    ) -> str | None:
+        """
+        Validate:
+
+            belief version
+                +
+            DecisionMade
+                +
+            OutcomeObserved
+                ->
+            ContradictionProposed
+
+        Returns the supporting decision ID if valid.
+        """
+
+        if (
+            proposal_item.plane
+            !=
+            "historical"
+            or
+            proposal_item.kind
+            !=
+            "ContradictionProposed"
+        ):
+            return None
+
+        if len(
+            proposal_item.refs
+        ) < 3:
+            return None
+
+        metadata = (
+            proposal_item.metadata
+        )
+
+        target_belief_id = (
+            metadata.get(
+                "target_belief_id"
+            )
+        )
+
+        target_version = (
+            metadata.get(
+                "target_belief_version"
+            )
+        )
+
+        target_seq = (
+            metadata.get(
+                "target_belief_seq"
+            )
+        )
+
+        if (
+            target_belief_id
+            is None
+            or
+            target_version
+            is None
+            or
+            target_seq
+            is None
+        ):
+            return None
+
+        # First structural reference must agree with metadata.
+        if (
+            proposal_item.refs[0]
+            !=
+            target_belief_id
+        ):
+            return None
+
+        # -------------------------------------------------------------
+        # Verify exact historical belief version.
+        # -------------------------------------------------------------
+
+        belief_row = (
+            self.db.execute(
+                """
+                SELECT *
+                FROM commits
+
+                WHERE
+                    plane='interpretive'
+                    AND object_id=?
+                    AND version=?
+                    AND seq=?
+                """,
+                (
+                    target_belief_id,
+                    target_version,
+                    target_seq,
+                ),
+            )
+            .fetchone()
+        )
+
+        if not belief_row:
+            return None
+
+        if (
+            belief_row["kind"]
+            !=
+            "belief"
+        ):
+            return None
+
+        # -------------------------------------------------------------
+        # Verify DecisionMade.
+        # -------------------------------------------------------------
+
+        decision_id = (
+            proposal_item.refs[1]
+        )
+
+        decision_row = (
+            self.db.execute(
+                """
+                SELECT *
+                FROM commits
+                WHERE object_id=?
+                """,
+                (
+                    decision_id,
+                ),
+            )
+            .fetchone()
+        )
+
+        if (
+            not decision_row
+            or
+            decision_row["kind"]
+            !=
+            "DecisionMade"
+        ):
+            return None
+
+        # -------------------------------------------------------------
+        # Verify referenced outcomes really belong to that decision.
+        # -------------------------------------------------------------
+
+        real_outcome_ids = {
+            row["object_id"]
+
+            for row
+            in self.db.execute(
+                """
+                SELECT
+                    object_id,
+                    refs
+
+                FROM commits
+
+                WHERE kind='OutcomeObserved'
+                """
+            )
+
+            if decision_id
+            in json.loads(
+                row["refs"]
+            )
+        }
+
+        proposal_outcome_ids = set(
+            proposal_item.refs[
+                2:
+            ]
+        )
+
+        if not proposal_outcome_ids:
+            return None
+
+        if not (
+            proposal_outcome_ids
+            .issubset(
+                real_outcome_ids
+            )
+        ):
+            return None
+
+        return decision_id
+
+    # -----------------------------------------------------------------
+    # EVIDENCE-GATED CONTESTATION
+    # -----------------------------------------------------------------
+
+    def contest_belief_if_supported(
+        self,
+        belief_id: str,
+        *,
+        required_distinct_decisions: int = 2,
+    ):
+        """
+        Mark the current version of a belief contested when a matching
+        contradiction claim is independently supported by enough
+        distinct DecisionMade -> OutcomeObserved chains.
+
+        Contestation does NOT replace the belief with another belief.
+        """
+
+        # -------------------------------------------------------------
+        # Current head defines exactly which version is under review.
+        # -------------------------------------------------------------
+
+        head_row = (
+            self.db.execute(
+                """
+                SELECT *
+                FROM commits
+
+                WHERE
+                    plane='interpretive'
+                    AND object_id=?
+
+                ORDER BY version DESC
+
+                LIMIT 1
+                """,
+                (
+                    belief_id,
+                ),
+            )
+            .fetchone()
+        )
+
+        if not head_row:
+            raise KeyError(
+                belief_id
+            )
+
+        current_head = (
+            self._item(
+                head_row
+            )
+        )
+
+        if (
+            current_head.kind
+            !=
+            "belief"
+        ):
+            raise ValueError(
+                "target must be a belief"
+            )
+
+        # Already contested:
+        # evaluating the same state again is a no-op.
+        if (
+            current_head.metadata.get(
+                "status"
+            )
+            ==
+            "contested"
+        ):
+            return current_head
+
+        # -------------------------------------------------------------
+        # Find valid contradiction proposals targeting EXACTLY this
+        # belief version.
+        # -------------------------------------------------------------
+
+        proposals = [
+            self._item(
+                row
+            )
+
+            for row
+            in self.db.execute(
+                """
+                SELECT *
+                FROM commits
+
+                WHERE kind='ContradictionProposed'
+
+                ORDER BY seq
+                """
+            )
+        ]
+
+        # Structure:
+        #
+        # normalized contradiction text
+        #     -> decision_id
+        #         -> canonical proposal
+        #
+        # This prevents one DecisionMade from voting multiple times.
+        groups = {}
+
+        for proposal in proposals:
+
+            if (
+                proposal.metadata.get(
+                    "target_belief_id"
+                )
+                !=
+                current_head.object_id
+            ):
+                continue
+
+            if (
+                proposal.metadata.get(
+                    "target_belief_version"
+                )
+                !=
+                current_head.version
+            ):
+                continue
+
+            if (
+                proposal.metadata.get(
+                    "target_belief_seq"
+                )
+                !=
+                current_head.seq
+            ):
+                continue
+
+            decision_id = (
+                self._valid_contradiction_support(
+                    proposal
+                )
+            )
+
+            if not decision_id:
+                continue
+
+            contradiction_norm = (
+                self._normalize_lesson(
+                    proposal.text
+                )
+            )
+
+            group = (
+                groups.setdefault(
+                    contradiction_norm,
+                    {},
+                )
+            )
+
+            # One supporting proposal per distinct decision.
+            if (
+                decision_id
+                not in
+                group
+            ):
+                group[
+                    decision_id
+                ] = proposal
+
+        # -------------------------------------------------------------
+        # Find first deterministic quorum.
+        #
+        # groups preserve insertion order because proposals were read
+        # in historical seq order.
+        # -------------------------------------------------------------
+
+        winning_norm = None
+        winning_group = None
+
+        for (
+            contradiction_norm,
+            by_decision,
+        ) in groups.items():
+
+            if (
+                len(
+                    by_decision
+                )
+                >=
+                required_distinct_decisions
+            ):
+                winning_norm = (
+                    contradiction_norm
+                )
+
+                winning_group = (
+                    by_decision
+                )
+
+                break
+
+        if winning_group is None:
+            return None
+
+        contradiction_proposals = tuple(
+            winning_group.values()
+        )
+
+        contradiction_refs = tuple(
+            proposal.object_id
+
+            for proposal
+            in contradiction_proposals
+        )
+
+        support_refs = tuple(
+            current_head.refs
+        )
+
+        # -------------------------------------------------------------
+        # Preserve both positive and negative ancestry.
+        # -------------------------------------------------------------
+
+        combined_refs = []
+        seen_refs = set()
+
+        for ref in (
+            *support_refs,
+            *contradiction_refs,
+        ):
+
+            if ref in seen_refs:
+                continue
+
+            seen_refs.add(
+                ref
+            )
+
+            combined_refs.append(
+                ref
+            )
+
+        combined_refs = tuple(
+            combined_refs
+        )
+
+        # -------------------------------------------------------------
+        # Idempotency belongs to this exact contestation evidence
+        # snapshot.
+        # -------------------------------------------------------------
+
+        contradiction_sha256 = (
+            hashlib
+            .sha256(
+                winning_norm.encode(
+                    "utf-8"
+                )
+            )
+            .hexdigest()
+        )
+
+        evidence_payload = (
+            json.dumps(
+                contradiction_refs,
+                separators=(
+                    ",",
+                    ":",
+                ),
+                ensure_ascii=False,
+            )
+        )
+
+        evidence_sha256 = (
+            hashlib
+            .sha256(
+                evidence_payload.encode(
+                    "utf-8"
+                )
+            )
+            .hexdigest()
+        )
+
+        contest_key = (
+            f"contest:"
+            f"{current_head.object_id}:"
+            f"v{current_head.version}:"
+            f"{contradiction_sha256}:"
+            f"{evidence_sha256}"
+        )
+
+        # -------------------------------------------------------------
+        # Append a NEW VERSION of the SAME belief identity.
+        #
+        # Text is deliberately unchanged.
+        #
+        # We are saying:
+        #
+        #     "This belief is now contested."
+        #
+        # NOT:
+        #
+        #     "The contradiction is now true."
+        # -------------------------------------------------------------
+
+        return self.learn(
+            current_head.text,
+
+            current_head.entities,
+
+            combined_refs,
+
+            object_id=(
+                current_head.object_id
+            ),
+
+            metadata={
+                "status": (
+                    "contested"
+                ),
+
+                "support_refs": (
+                    support_refs
+                ),
+
+                "contradiction_refs": (
+                    contradiction_refs
+                ),
+
+                "contested_from_version": (
+                    current_head.version
+                ),
+            },
+
+            idempotency_key=(
+                contest_key
+            ),
+        )
+
 
 
     # -----------------------------------------------------------------
