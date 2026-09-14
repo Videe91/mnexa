@@ -98,9 +98,22 @@ def apply_competing_hypothesis_frame(
         evaluation_family_payload
     )
 
+    has_transfer_obj = (
+        "transfer" in payload
+        and isinstance(
+            payload["transfer"],
+            dict,
+        )
+        and "prompt" in payload["transfer"]
+    )
+
+    has_transfer_prompt = (
+        "transfer_prompt" in payload
+    )
+
     if (
-        "transfer_prompt"
-        not in payload
+        not has_transfer_obj
+        and not has_transfer_prompt
     ):
 
         raise KeyError(
@@ -108,15 +121,33 @@ def apply_competing_hypothesis_frame(
             "for competing-hypothesis framing"
         )
 
-    payload[
-        "transfer_prompt"
-    ] = (
-        competing_hypothesis_prompt(
-            payload[
-                "transfer_prompt"
-            ]
+    if has_transfer_prompt:
+
+        payload[
+            "transfer_prompt"
+        ] = (
+            competing_hypothesis_prompt(
+                payload[
+                    "transfer_prompt"
+                ]
+            )
         )
-    )
+
+    if has_transfer_obj:
+
+        payload[
+            "transfer"
+        ][
+            "prompt"
+        ] = (
+            competing_hypothesis_prompt(
+                payload[
+                    "transfer"
+                ][
+                    "prompt"
+                ]
+            )
+        )
 
     return payload
 
