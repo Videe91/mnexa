@@ -109,5 +109,7 @@ Durable Lesson Appended          Successful Transfer
 36. [`36_lesson_proposal_promotion.md`](file:///Users/vineetpandey/Desktop/mnexa/ledger/36_lesson_proposal_promotion.md): Two-stage epistemic memory pipeline implementation & proposal/promotion gate verification.
 37. [`37_evidence_gated_promotion.md`](file:///Users/vineetpandey/Desktop/mnexa/ledger/37_evidence_gated_promotion.md): Evidence-gated automatic promotion architecture & v0 quorum verification.
 38. [`38_belief_contradiction_contestation.md`](file:///Users/vineetpandey/Desktop/mnexa/ledger/38_belief_contradiction_contestation.md): Epistemic contradiction proposal, evidence-gated contestation, and recall suppression.
+39. [`39_belief_supersession.md`](file:///Users/vineetpandey/Desktop/mnexa/ledger/39_belief_supersession.md): Evidence-gated belief supersession, shared counterepisode verification, and active replacement loop.
+
 
 

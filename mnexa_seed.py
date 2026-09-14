@@ -891,14 +891,16 @@ class MnexaSeed:
                 )
             )
 
-            # A contested head means the belief remains durable
+            # A contested or superseded head means the belief remains durable
             # history but is not safe for ordinary active recall.
             if (
                 item.metadata.get(
                     "status"
                 )
-                ==
-                "contested"
+                in {
+                    "contested",
+                    "superseded",
+                }
             ):
                 continue
 
@@ -3099,6 +3101,521 @@ class MnexaSeed:
 
             idempotency_key=(
                 contest_key
+            ),
+        )
+
+    # -----------------------------------------------------------------
+    # EVIDENCE-GATED BELIEF SUPERSESSION
+    # -----------------------------------------------------------------
+
+    def supersede_belief_if_supported(
+        self,
+        old_belief_id: str,
+        replacement_belief_id: str,
+        *,
+        required_shared_decisions: int = 2,
+    ):
+        """
+        Supersede a contested belief with a different active belief
+        only when enough independent DecisionMade episodes both:
+
+            1. contributed contradiction evidence against the old belief
+            2. contributed lesson evidence supporting the replacement
+
+        MNEXA does not decide that the propositions are semantically
+        equivalent or opposite.
+
+        It only verifies the evidence ancestry overlap.
+        """
+
+        # -------------------------------------------------------------
+        # Resolve current old-belief head.
+        # -------------------------------------------------------------
+
+        old_row = (
+            self.db.execute(
+                """
+                SELECT *
+                FROM commits
+
+                WHERE
+                    plane='interpretive'
+                    AND object_id=?
+
+                ORDER BY version DESC
+
+                LIMIT 1
+                """,
+                (
+                    old_belief_id,
+                ),
+            )
+            .fetchone()
+        )
+
+        if not old_row:
+            raise KeyError(
+                old_belief_id
+            )
+
+        old_head = (
+            self._item(
+                old_row
+            )
+        )
+
+        if (
+            old_head.kind
+            !=
+            "belief"
+        ):
+            raise ValueError(
+                "old target must be a belief"
+            )
+
+        # -------------------------------------------------------------
+        # Resolve current replacement-belief head.
+        # -------------------------------------------------------------
+
+        replacement_row = (
+            self.db.execute(
+                """
+                SELECT *
+                FROM commits
+
+                WHERE
+                    plane='interpretive'
+                    AND object_id=?
+
+                ORDER BY version DESC
+
+                LIMIT 1
+                """,
+                (
+                    replacement_belief_id,
+                ),
+            )
+            .fetchone()
+        )
+
+        if not replacement_row:
+            raise KeyError(
+                replacement_belief_id
+            )
+
+        replacement = (
+            self._item(
+                replacement_row
+            )
+        )
+
+        if (
+            replacement.kind
+            !=
+            "belief"
+        ):
+            raise ValueError(
+                "replacement must be a belief"
+            )
+
+        # -------------------------------------------------------------
+        # Repeat-safe terminal state.
+        #
+        # If this belief has already been superseded by the same
+        # replacement belief lineage, return the existing head.
+        # -------------------------------------------------------------
+
+        if (
+            old_head.metadata.get(
+                "status"
+            )
+            ==
+            "superseded"
+        ):
+            if (
+                old_head.metadata.get(
+                    "superseded_by"
+                )
+                ==
+                replacement.object_id
+            ):
+                return old_head
+
+            raise ValueError(
+                "belief already superseded "
+                "by a different replacement"
+            )
+
+        # -------------------------------------------------------------
+        # Only an already-contested belief is eligible.
+        # -------------------------------------------------------------
+
+        if (
+            old_head.metadata.get(
+                "status"
+            )
+            !=
+            "contested"
+        ):
+            raise ValueError(
+                "old belief must be contested "
+                "before supersession"
+            )
+
+        # -------------------------------------------------------------
+        # Replacement must represent a DIFFERENT proposition.
+        # -------------------------------------------------------------
+
+        old_norm = (
+            self._normalize_lesson(
+                old_head.text
+            )
+        )
+
+        replacement_norm = (
+            self._normalize_lesson(
+                replacement.text
+            )
+        )
+
+        if (
+            old_norm
+            ==
+            replacement_norm
+        ):
+            raise ValueError(
+                "replacement must be a "
+                "different proposition"
+            )
+
+        # -------------------------------------------------------------
+        # Replacement itself must still be active.
+        # -------------------------------------------------------------
+
+        if (
+            replacement.metadata.get(
+                "status"
+            )
+            in {
+                "contested",
+                "superseded",
+            }
+        ):
+            return None
+
+        # -------------------------------------------------------------
+        # Recover decisions that legitimately contradicted X.
+        #
+        # Do NOT scan arbitrary contradiction proposals.
+        #
+        # Only use contradiction refs that were actually accepted into
+        # the contested version of X.
+        # -------------------------------------------------------------
+
+        contradiction_refs = tuple(
+            old_head.metadata.get(
+                "contradiction_refs",
+                (),
+            )
+        )
+
+        contradiction_decisions = {}
+
+        for contradiction_id in contradiction_refs:
+
+            row = (
+                self.db.execute(
+                    """
+                    SELECT *
+                    FROM commits
+                    WHERE object_id=?
+                    """,
+                    (
+                        contradiction_id,
+                    ),
+                )
+                .fetchone()
+            )
+
+            if not row:
+                continue
+
+            proposal = (
+                self._item(
+                    row
+                )
+            )
+
+            decision_id = (
+                self._valid_contradiction_support(
+                    proposal
+                )
+            )
+
+            if not decision_id:
+                continue
+
+            contradiction_decisions[
+                decision_id
+            ] = proposal
+
+        # -------------------------------------------------------------
+        # Recover decisions that legitimately support Y.
+        #
+        # Replacement refs must point back to real LessonProposed
+        # ancestry for the same normalized replacement proposition.
+        # -------------------------------------------------------------
+
+        replacement_decisions = {}
+
+        for proposal_id in replacement.refs:
+
+            row = (
+                self.db.execute(
+                    """
+                    SELECT *
+                    FROM commits
+                    WHERE object_id=?
+                    """,
+                    (
+                        proposal_id,
+                    ),
+                )
+                .fetchone()
+            )
+
+            if not row:
+                continue
+
+            proposal = (
+                self._item(
+                    row
+                )
+            )
+
+            if (
+                proposal.plane
+                !=
+                "historical"
+                or
+                proposal.kind
+                !=
+                "LessonProposed"
+            ):
+                continue
+
+            if (
+                self._normalize_lesson(
+                    proposal.text
+                )
+                !=
+                replacement_norm
+            ):
+                continue
+
+            support = (
+                self._valid_lesson_support(
+                    proposal
+                )
+            )
+
+            if not support:
+                continue
+
+            decision_id, _ = (
+                support
+            )
+
+            # One decision = one support unit.
+            if (
+                decision_id
+                not in
+                replacement_decisions
+            ):
+                replacement_decisions[
+                    decision_id
+                ] = proposal
+
+        # -------------------------------------------------------------
+        # Shared real-world episodes are the bridge:
+        #
+        #     decision contradicted X
+        #               AND
+        #     same decision supported Y
+        # -------------------------------------------------------------
+
+        shared_decision_ids = tuple(
+            decision_id
+
+            for decision_id
+            in contradiction_decisions
+
+            if decision_id
+            in replacement_decisions
+        )
+
+        if (
+            len(
+                shared_decision_ids
+            )
+            <
+            required_shared_decisions
+        ):
+            return None
+
+        # -------------------------------------------------------------
+        # Only replacement proposals from the shared episodes establish
+        # the supersession relation.
+        # -------------------------------------------------------------
+
+        replacement_support_refs = tuple(
+            replacement_decisions[
+                decision_id
+            ].object_id
+
+            for decision_id
+            in shared_decision_ids
+        )
+
+        # -------------------------------------------------------------
+        # Preserve complete old ancestry plus replacement evidence.
+        # -------------------------------------------------------------
+
+        combined_refs = []
+        seen_refs = set()
+
+        for ref in (
+            *old_head.refs,
+            *replacement_support_refs,
+        ):
+
+            if ref in seen_refs:
+                continue
+
+            seen_refs.add(
+                ref
+            )
+
+            combined_refs.append(
+                ref
+            )
+
+        combined_refs = tuple(
+            combined_refs
+        )
+
+        # -------------------------------------------------------------
+        # Stable idempotency identity for this exact transition.
+        # -------------------------------------------------------------
+
+        evidence_payload = (
+            json.dumps(
+                {
+                    "old_belief_id": (
+                        old_head.object_id
+                    ),
+
+                    "old_version": (
+                        old_head.version
+                    ),
+
+                    "replacement_id": (
+                        replacement.object_id
+                    ),
+
+                    "replacement_version": (
+                        replacement.version
+                    ),
+
+                    "shared_decisions": (
+                        shared_decision_ids
+                    ),
+                },
+                sort_keys=True,
+                separators=(
+                    ",",
+                    ":",
+                ),
+                ensure_ascii=False,
+            )
+        )
+
+        transition_sha256 = (
+            hashlib
+            .sha256(
+                evidence_payload.encode(
+                    "utf-8"
+                )
+            )
+            .hexdigest()
+        )
+
+        supersede_key = (
+            f"supersede:"
+            f"{old_head.object_id}:"
+            f"{transition_sha256}"
+        )
+
+        # -------------------------------------------------------------
+        # Append a NEW VERSION of X.
+        #
+        # X's text and identity remain untouched.
+        #
+        # We are recording:
+        #
+        #     X is no longer the active belief.
+        #     Y supersedes X.
+        #
+        # Y remains its own independent belief object.
+        # -------------------------------------------------------------
+
+        return self.learn(
+            old_head.text,
+
+            old_head.entities,
+
+            combined_refs,
+
+            object_id=(
+                old_head.object_id
+            ),
+
+            metadata={
+                "status": (
+                    "superseded"
+                ),
+
+                "superseded_by": (
+                    replacement.object_id
+                ),
+
+                "superseded_by_version": (
+                    replacement.version
+                ),
+
+                "superseded_by_seq": (
+                    replacement.seq
+                ),
+
+                "superseded_from_version": (
+                    old_head.version
+                ),
+
+                "shared_decision_ids": (
+                    shared_decision_ids
+                ),
+
+                "contradiction_refs": (
+                    contradiction_refs
+                ),
+
+                "replacement_support_refs": (
+                    replacement_support_refs
+                ),
+            },
+
+            idempotency_key=(
+                supersede_key
             ),
         )
 
