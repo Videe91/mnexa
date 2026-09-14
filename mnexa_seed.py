@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Protocol, Sequence
 
+import hashlib
 import json
 import math
 import re
@@ -72,6 +73,14 @@ class Decision:
     text: str
 
     memory_segments: tuple[str, ...]
+
+
+class IdempotencyConflict(RuntimeError):
+    """
+    One logical-write idempotency key was reused for a different request.
+    """
+
+    pass
 
 
 # ---------------------------------------------------------------------
@@ -176,6 +185,16 @@ class MnexaSeed:
             );
 
 
+            CREATE TABLE IF NOT EXISTS write_idempotency(
+                idempotency_key TEXT PRIMARY KEY,
+
+                request_sha256 TEXT NOT NULL,
+
+                commit_seq INTEGER NOT NULL,
+                commit_object_id TEXT NOT NULL
+            );
+
+
             CREATE UNIQUE INDEX IF NOT EXISTS uq_hist
             ON commits(object_id)
             WHERE plane='historical';
@@ -214,6 +233,106 @@ class MnexaSeed:
     # -----------------------------------------------------------------
     # Append-only commit
     # -----------------------------------------------------------------
+    # ADR-0018 logical-write identity
+    # -----------------------------------------------------------------
+
+    @staticmethod
+    def _normalize_idempotency_key(
+        idempotency_key,
+    ):
+        if idempotency_key is None:
+            return None
+
+        key = str(
+            idempotency_key
+        ).strip()
+
+        if not key:
+            raise ValueError(
+                "idempotency_key may not be empty"
+            )
+
+        return key
+
+    @staticmethod
+    def _canonical_request_sha256(
+        *,
+        plane,
+        kind,
+        text,
+        entities,
+        refs,
+        metadata,
+        searchable,
+        requested_object_id=None,
+    ):
+        """
+        Fingerprint caller-controlled logical-write meaning.
+
+        Deliberately excludes:
+
+        - generated object IDs;
+        - generated interpretation versions;
+        - commit sequence;
+        - generated embeddings.
+
+        If the caller explicitly selected an interpretation object,
+        requested_object_id carries that intent.
+        """
+
+        payload = {
+            "plane": (
+                plane
+            ),
+
+            "kind": (
+                kind
+            ),
+
+            "text": (
+                text
+            ),
+
+            "entities": list(
+                entities
+            ),
+
+            "refs": list(
+                refs
+            ),
+
+            "metadata": (
+                metadata
+            ),
+
+            "searchable": bool(
+                searchable
+            ),
+
+            "requested_object_id": (
+                requested_object_id
+            ),
+        }
+
+        encoded = json.dumps(
+            payload,
+            sort_keys=True,
+            separators=(
+                ",",
+                ":",
+            ),
+            ensure_ascii=False,
+        ).encode(
+            "utf-8"
+        )
+
+        return (
+            hashlib
+            .sha256(
+                encoded
+            )
+            .hexdigest()
+        )
 
     def _append(
         self,
@@ -226,16 +345,88 @@ class MnexaSeed:
         refs=(),
         metadata=None,
         searchable=False,
+        *,
+        idempotency_key=None,
+        requested_object_id=None,
     ):
+        entities = tuple(
+            entities
+        )
+
+        refs = tuple(
+            refs
+        )
+
+        metadata = dict(
+            metadata
+            or {}
+        )
+
+        idempotency_key = (
+            self._normalize_idempotency_key(
+                idempotency_key
+            )
+        )
+
+        request_sha256 = (
+            self._canonical_request_sha256(
+                plane=plane,
+                kind=kind,
+                text=text,
+                entities=entities,
+                refs=refs,
+                metadata=metadata,
+                searchable=searchable,
+                requested_object_id=(
+                    requested_object_id
+                ),
+            )
+        )
+
+        # Embedding generation happens before taking the SQLite write
+        # lock. If embedding fails, nothing durable has started.
         vector = None
 
         if searchable and self.embedder:
-            vector = self.embedder.embed(
-                text
+            vector = (
+                self.embedder.embed(
+                    text
+                )
             )
 
-        with self.db:
-            cur = self.db.execute(
+        values = (
+            plane,
+            object_id,
+            version,
+            kind,
+            text,
+
+            json.dumps(
+                entities
+            ),
+
+            json.dumps(
+                refs
+            ),
+
+            (
+                json.dumps(
+                    list(
+                        vector
+                    )
+                )
+                if vector is not None
+                else None
+            ),
+
+            json.dumps(
+                metadata,
+                sort_keys=True,
+            ),
+        )
+
+        def insert_commit():
+            return self.db.execute(
                 """
                 INSERT INTO commits(
                     plane,
@@ -250,43 +441,197 @@ class MnexaSeed:
                 )
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
+                values,
+            )
+
+        # -------------------------------------------------------------
+        # Legacy/non-retryable path.
+        #
+        # No explicit key means this call represents a new independent
+        # historical write, preserving existing behavior.
+        # -------------------------------------------------------------
+
+        if idempotency_key is None:
+
+            with self.db:
+                cur = (
+                    insert_commit()
+                )
+
+            row = self.db.execute(
+                """
+                SELECT *
+                FROM commits
+                WHERE seq=?
+                """,
                 (
-                    plane,
-                    object_id,
-                    version,
-                    kind,
-                    text,
-                    json.dumps(
-                        tuple(entities)
-                    ),
-                    json.dumps(
-                        tuple(refs)
-                    ),
+                    cur.lastrowid,
+                ),
+            ).fetchone()
+
+            return self._item(
+                row
+            )
+
+        # -------------------------------------------------------------
+        # ADR-0018 retryable path.
+        #
+        # BEGIN IMMEDIATE obtains SQLite's write reservation before
+        # examining the idempotency mapping. This keeps:
+        #
+        #     check key
+        #     append commit
+        #     register key
+        #
+        # inside one serialized transaction.
+        # -------------------------------------------------------------
+
+        self.db.execute(
+            "BEGIN IMMEDIATE"
+        )
+
+        try:
+            existing = (
+                self.db.execute(
+                    """
+                    SELECT
+                        idempotency_key,
+                        request_sha256,
+                        commit_seq,
+                        commit_object_id
+
+                    FROM write_idempotency
+
+                    WHERE idempotency_key=?
+                    """,
                     (
-                        json.dumps(
-                            list(vector)
-                        )
-                        if vector is not None
-                        else None
+                        idempotency_key,
                     ),
-                    json.dumps(
-                        metadata or {}
-                    ),
+                )
+                .fetchone()
+            )
+
+            # ---------------------------------------------------------
+            # Retry of a known logical write.
+            # ---------------------------------------------------------
+
+            if existing is not None:
+
+                if (
+                    existing[
+                        "request_sha256"
+                    ]
+                    !=
+                    request_sha256
+                ):
+                    raise IdempotencyConflict(
+                        "idempotency key "
+                        f"{idempotency_key!r} "
+                        "was already committed "
+                        "for a different request"
+                    )
+
+                row = (
+                    self.db.execute(
+                        """
+                        SELECT *
+                        FROM commits
+                        WHERE seq=?
+                        """,
+                        (
+                            existing[
+                                "commit_seq"
+                            ],
+                        ),
+                    )
+                    .fetchone()
+                )
+
+                if row is None:
+                    raise RuntimeError(
+                        "idempotency mapping points "
+                        "to a missing commit"
+                    )
+
+                if (
+                    row["object_id"]
+                    !=
+                    existing[
+                        "commit_object_id"
+                    ]
+                ):
+                    raise RuntimeError(
+                        "idempotency mapping does not "
+                        "match committed object identity"
+                    )
+
+                result = (
+                    self._item(
+                        row
+                    )
+                )
+
+                self.db.commit()
+
+                return result
+
+            # ---------------------------------------------------------
+            # First submission of this logical write.
+            # ---------------------------------------------------------
+
+            cur = (
+                insert_commit()
+            )
+
+            commit_seq = int(
+                cur.lastrowid
+            )
+
+            self.db.execute(
+                """
+                INSERT INTO write_idempotency(
+                    idempotency_key,
+                    request_sha256,
+                    commit_seq,
+                    commit_object_id
+                )
+                VALUES (?, ?, ?, ?)
+                """,
+                (
+                    idempotency_key,
+                    request_sha256,
+                    commit_seq,
+                    object_id,
                 ),
             )
 
-        row = self.db.execute(
-            """
-            SELECT *
-            FROM commits
-            WHERE seq=?
-            """,
-            (
-                cur.lastrowid,
-            ),
-        ).fetchone()
+            row = (
+                self.db.execute(
+                    """
+                    SELECT *
+                    FROM commits
+                    WHERE seq=?
+                    """,
+                    (
+                        commit_seq,
+                    ),
+                )
+                .fetchone()
+            )
 
-        return self._item(row)
+            result = (
+                self._item(
+                    row
+                )
+            )
+
+            self.db.commit()
+
+            return result
+
+        except BaseException:
+            self.db.rollback()
+            raise
 
     def _item(
         self,
@@ -341,6 +686,8 @@ class MnexaSeed:
         self,
         text: str,
         entities=(),
+        *,
+        idempotency_key=None,
     ):
         return self._append(
             "historical",
@@ -355,6 +702,10 @@ class MnexaSeed:
             entities,
 
             searchable=True,
+
+            idempotency_key=(
+                idempotency_key
+            ),
         )
 
     # -----------------------------------------------------------------
@@ -368,6 +719,8 @@ class MnexaSeed:
         entities=(),
         refs=(),
         metadata=None,
+        *,
+        idempotency_key=None,
     ):
         return self._append(
             "historical",
@@ -385,6 +738,10 @@ class MnexaSeed:
             metadata,
 
             False,
+
+            idempotency_key=(
+                idempotency_key
+            ),
         )
 
     # -----------------------------------------------------------------
@@ -397,17 +754,30 @@ class MnexaSeed:
         entities=(),
         source_record_ids=(),
         object_id=None,
+        *,
+        idempotency_key=None,
     ):
+        # Preserve whether identity was caller-selected.
+        #
+        # A generated UUID must NOT make an idempotent retry appear to
+        # be a different logical request.
+        requested_object_id = (
+            object_id
+        )
+
         object_id = (
             object_id
-            or f"i_{uuid.uuid4().hex}"
+            or
+            f"i_{uuid.uuid4().hex}"
         )
 
         row = self.db.execute(
             """
             SELECT
                 COALESCE(MAX(version), 0) v
+
             FROM commits
+
             WHERE
                 plane='interpretive'
                 AND object_id=?
@@ -418,8 +788,11 @@ class MnexaSeed:
         ).fetchone()
 
         version = (
-            int(row["v"])
-            + 1
+            int(
+                row["v"]
+            )
+            +
+            1
         )
 
         return self._append(
@@ -436,6 +809,14 @@ class MnexaSeed:
             source_record_ids,
 
             searchable=True,
+
+            idempotency_key=(
+                idempotency_key
+            ),
+
+            requested_object_id=(
+                requested_object_id
+            ),
         )
 
     # -----------------------------------------------------------------
@@ -907,6 +1288,7 @@ class MnexaSeed:
         context_evidence_sha256: str,
         entities=(),
         decision_kind="task_response",
+        idempotency_key=None,
     ) -> Decision:
         """
         Record a decision produced outside MNEXA.
@@ -1091,6 +1473,10 @@ class MnexaSeed:
                         "external"
                     ),
                 },
+
+                idempotency_key=(
+                    idempotency_key
+                ),
             )
         )
 
@@ -1259,6 +1645,7 @@ class MnexaSeed:
         text: str,
         *,
         success: bool | None,
+        idempotency_key=None,
     ):
         decision = self.db.execute(
             """
@@ -1298,6 +1685,10 @@ class MnexaSeed:
                     decision_id
                 ),
             },
+
+            idempotency_key=(
+                idempotency_key
+            ),
         )
 
     # -----------------------------------------------------------------
