@@ -10,6 +10,12 @@ import re
 import sqlite3
 import uuid
 
+from mnexa_context import (
+    AssembledRecall,
+    ContextFrame,
+    ContextPreparer,
+)
+
 
 # ---------------------------------------------------------------------
 # Ports
@@ -675,6 +681,443 @@ class MnexaSeed:
             ),
             reverse=True,
         )[:top_k]
+
+    # -----------------------------------------------------------------
+    # ADR-0017 CANONICAL CONTEXT BOUNDARY
+    # -----------------------------------------------------------------
+
+    def prepare_context(
+        self,
+        recall_intent: str,
+        entities=(),
+        memory_budget=256,
+    ) -> ContextFrame:
+        """
+        Canonical MNEXA-side preparation path.
+
+        MNEXA:
+            freezes the memory watermark
+            -> recalls
+            -> assembles context
+            -> records ContextAssembled
+            -> returns immutable ContextFrame
+
+        No model reasoning occurs here.
+        """
+
+        entities = tuple(
+            entities
+        )
+
+        if memory_budget < 0:
+            raise ValueError(
+                "memory_budget must be >= 0"
+            )
+
+        def freeze_watermark():
+            return self.watermark()
+
+        def recall(
+            query,
+            watermark,
+        ):
+            return self.recall(
+                query,
+                entities,
+                top_k=12,
+                as_of=watermark,
+            )
+
+        def assemble(
+            hits,
+            watermark,
+        ):
+            segments = []
+            selected_memory_ids = []
+
+            left = (
+                memory_budget
+            )
+
+            for hit in hits:
+
+                version_suffix = (
+                    f":v{hit.item.version}"
+                    if hit.item.version
+                    is not None
+                    else ""
+                )
+
+                memory_id = (
+                    f"{hit.item.plane}:"
+                    f"{hit.item.object_id}"
+                    f"{version_suffix}"
+                )
+
+                segment = (
+                    f"[{memory_id}] "
+                    f"{hit.item.text}"
+                )
+
+                size = (
+                    self.meter.count(
+                        segment
+                    )
+                )
+
+                if size > left:
+                    continue
+
+                segments.append(
+                    segment
+                )
+
+                selected_memory_ids.append(
+                    memory_id
+                )
+
+                left -= size
+
+            return AssembledRecall(
+                selected_memory_ids=(
+                    tuple(
+                        selected_memory_ids
+                    )
+                ),
+
+                context_text=(
+                    "\n".join(
+                        segments
+                    )
+                ),
+
+                metadata={
+                    "watermark": (
+                        watermark
+                    ),
+
+                    "segments": (
+                        tuple(
+                            segments
+                        )
+                    ),
+
+                    "meter": (
+                        self.meter.name
+                    ),
+
+                    "entities": (
+                        entities
+                    ),
+
+                    "memory_budget": (
+                        memory_budget
+                    ),
+                },
+            )
+
+        def record_context(
+            frame,
+        ):
+            context_event = (
+                self.event(
+                    "ContextAssembled",
+
+                    frame.context_text,
+
+                    entities,
+
+                    metadata={
+                        "watermark": (
+                            frame.watermark
+                        ),
+
+                        "segments": (
+                            tuple(
+                                frame
+                                .metadata()
+                                .get(
+                                    "segments",
+                                    (),
+                                )
+                            )
+                        ),
+
+                        "meter": (
+                            self.meter.name
+                        ),
+
+                        "selected_memory_ids": (
+                            frame
+                            .selected_memory_ids
+                        ),
+
+                        "recall_intent": (
+                            frame
+                            .recall_intent
+                        ),
+
+                        "context_evidence_sha256": (
+                            frame
+                            .evidence_sha256
+                        ),
+                    },
+                )
+            )
+
+            return (
+                context_event.object_id
+            )
+
+        preparer = (
+            ContextPreparer(
+                freeze_watermark=(
+                    freeze_watermark
+                ),
+
+                recall=(
+                    recall
+                ),
+
+                assemble=(
+                    assemble
+                ),
+
+                record_context=(
+                    record_context
+                ),
+            )
+        )
+
+        return preparer.prepare(
+            recall_intent=(
+                recall_intent
+            )
+        )
+
+    # -----------------------------------------------------------------
+    # EXTERNAL DECISION INGESTION
+    # -----------------------------------------------------------------
+
+    def record_external_decision(
+        self,
+        *,
+        context: ContextFrame,
+        decision_text: str,
+        context_evidence_sha256: str,
+        entities=(),
+        decision_kind="task_response",
+    ) -> Decision:
+        """
+        Record a decision produced outside MNEXA.
+
+        MNEXA does not reason here.
+
+        It verifies which immutable ContextFrame the external decision
+        consumed and records the resulting DecisionMade event.
+        """
+
+        if not isinstance(
+            context,
+            ContextFrame,
+        ):
+            raise TypeError(
+                "context must be ContextFrame"
+            )
+
+        if not context.verify_integrity():
+            raise ValueError(
+                "ContextFrame integrity "
+                "verification failed"
+            )
+
+        if (
+            context_evidence_sha256
+            !=
+            context.evidence_sha256
+        ):
+            raise ValueError(
+                "context evidence hash "
+                "does not match ContextFrame"
+            )
+
+        context_event_id = (
+            context
+            .context_assembled_event_id
+        )
+
+        if not context_event_id:
+            raise ValueError(
+                "recorded ContextAssembled "
+                "event is required"
+            )
+
+        context_row = (
+            self.db.execute(
+                """
+                SELECT *
+                FROM commits
+                WHERE object_id=?
+                """,
+                (
+                    context_event_id,
+                ),
+            )
+            .fetchone()
+        )
+
+        if (
+            not context_row
+            or
+            context_row["kind"]
+            !=
+            "ContextAssembled"
+        ):
+            raise ValueError(
+                "recorded ContextAssembled "
+                "event is required"
+            )
+
+        recorded_context = (
+            self._item(
+                context_row
+            )
+        )
+
+        recorded_hash = (
+            recorded_context
+            .metadata
+            .get(
+                "context_evidence_sha256"
+            )
+        )
+
+        if (
+            recorded_hash
+            !=
+            context.evidence_sha256
+        ):
+            raise ValueError(
+                "recorded ContextAssembled "
+                "event does not match "
+                "ContextFrame evidence hash"
+            )
+
+        if (
+            recorded_context.text
+            !=
+            context.context_text
+        ):
+            raise ValueError(
+                "recorded ContextAssembled "
+                "event does not match "
+                "ContextFrame content"
+            )
+
+        recorded_watermark = (
+            recorded_context
+            .metadata
+            .get(
+                "watermark"
+            )
+        )
+
+        if (
+            recorded_watermark
+            !=
+            context.watermark
+        ):
+            raise ValueError(
+                "recorded ContextAssembled "
+                "event does not match "
+                "ContextFrame watermark"
+            )
+
+        decision_text = str(
+            decision_text
+        ).strip()
+
+        if not decision_text:
+            raise ValueError(
+                "decision_text may not "
+                "be empty"
+            )
+
+        decision_kind = str(
+            decision_kind
+        ).strip()
+
+        if not decision_kind:
+            raise ValueError(
+                "decision_kind may not "
+                "be empty"
+            )
+
+        entities = tuple(
+            entities
+        )
+
+        decision = (
+            self.event(
+                "DecisionMade",
+
+                decision_text,
+
+                entities,
+
+                refs=(
+                    context_event_id,
+                ),
+
+                metadata={
+                    "watermark": (
+                        context.watermark
+                    ),
+
+                    "decided_from": (
+                        context_event_id
+                    ),
+
+                    "context_evidence_sha256": (
+                        context
+                        .evidence_sha256
+                    ),
+
+                    "decision_kind": (
+                        decision_kind
+                    ),
+
+                    "reasoning_owner": (
+                        "external"
+                    ),
+                },
+            )
+        )
+
+        context_metadata = (
+            context.metadata()
+        )
+
+        return Decision(
+            record_id=(
+                decision.object_id
+            ),
+
+            watermark=(
+                context.watermark
+            ),
+
+            text=(
+                decision_text
+            ),
+
+            memory_segments=tuple(
+                context_metadata.get(
+                    "segments",
+                    (),
+                )
+            ),
+        )
 
     # -----------------------------------------------------------------
     # COGNITIVE CYCLE
