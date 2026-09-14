@@ -1902,6 +1902,159 @@ class MnexaSeed:
         )
 
     # -----------------------------------------------------------------
+    # EVIDENCE-GATED AUTOMATIC PROMOTION (ADR-0018 / v0 Quorum)
+    # -----------------------------------------------------------------
+
+    @staticmethod
+    def _normalize_lesson(text: str) -> str:
+        return " ".join(str(text).casefold().split())
+
+    def _valid_lesson_support(
+        self,
+        proposal_item,
+    ) -> tuple[str, str] | None:
+        """
+        Verify that proposal_item has a valid evidence ancestry chain:
+        DecisionMade -> OutcomeObserved -> LessonProposed.
+
+        Returns (decision_id, primary_outcome_id) if valid, or None.
+        """
+        if (
+            proposal_item.plane != "historical"
+            or proposal_item.kind != "LessonProposed"
+            or not proposal_item.refs
+        ):
+            return None
+
+        decision_id = proposal_item.refs[0]
+
+        drow = self.db.execute(
+            """
+            SELECT plane, kind
+            FROM commits
+            WHERE object_id=?
+            """,
+            (decision_id,),
+        ).fetchone()
+
+        if not drow or drow["kind"] != "DecisionMade":
+            return None
+
+        outcomes = [
+            row
+            for row in self.db.execute(
+                """
+                SELECT object_id, refs
+                FROM commits
+                WHERE kind='OutcomeObserved'
+                """
+            )
+            if decision_id in json.loads(row["refs"])
+        ]
+
+        if not outcomes:
+            return None
+
+        outcome_ids = {row["object_id"] for row in outcomes}
+        if not any(ref in outcome_ids for ref in proposal_item.refs[1:]):
+            return None
+
+        return (decision_id, outcomes[0]["object_id"])
+
+    def promote_lesson_if_supported(
+        self,
+        proposal_id: str,
+        *,
+        required_distinct_decisions: int = 2,
+    ):
+        """
+        Automatically promote a lesson proposal into active interpretive memory
+        if at least required_distinct_decisions distinct DecisionMade events
+        have valid LessonProposed events matching the normalized lesson text.
+        """
+        row = self.db.execute(
+            """
+            SELECT *
+            FROM commits
+            WHERE object_id=?
+            """,
+            (proposal_id,),
+        ).fetchone()
+
+        if not row:
+            raise KeyError(proposal_id)
+
+        target_proposal = self._item(row)
+
+        if (
+            target_proposal.plane != "historical"
+            or target_proposal.kind != "LessonProposed"
+        ):
+            raise ValueError("promotion requires a LessonProposed event")
+
+        target_norm = self._normalize_lesson(target_proposal.text)
+
+        all_proposals = [
+            self._item(r)
+            for r in self.db.execute(
+                """
+                SELECT *
+                FROM commits
+                WHERE kind='LessonProposed'
+                ORDER BY seq
+                """
+            )
+        ]
+
+        matching_proposals_by_decision = {}
+        proposal_ids_by_decision = {}
+
+        for p in all_proposals:
+            if self._normalize_lesson(p.text) != target_norm:
+                continue
+
+            support = self._valid_lesson_support(p)
+            if not support:
+                continue
+
+            decision_id, _ = support
+            if decision_id not in matching_proposals_by_decision:
+                matching_proposals_by_decision[decision_id] = p
+                proposal_ids_by_decision[decision_id] = [p.object_id]
+            else:
+                proposal_ids_by_decision[decision_id].append(p.object_id)
+
+        if len(matching_proposals_by_decision) < required_distinct_decisions:
+            return None
+
+        all_matching_proposal_ids = []
+        all_entities = []
+
+        for p_list in proposal_ids_by_decision.values():
+            all_matching_proposal_ids.extend(p_list)
+
+        for p in matching_proposals_by_decision.values():
+            all_entities.extend(p.entities)
+
+        seen_ent = set()
+        dedup_entities = []
+        for e in all_entities:
+            if e not in seen_ent:
+                seen_ent.add(e)
+                dedup_entities.append(e)
+
+        auto_key = (
+            f"auto-promote:{hashlib.sha256(target_norm.encode('utf-8')).hexdigest()}"
+        )
+
+        return self.learn(
+            target_proposal.text,
+            tuple(dedup_entities),
+            tuple(all_matching_proposal_ids),
+            idempotency_key=auto_key,
+        )
+
+    # -----------------------------------------------------------------
     # CONSOLIDATION
     # -----------------------------------------------------------------
 
