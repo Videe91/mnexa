@@ -233,14 +233,12 @@ def classify_assembly_effect(
 
     fixed_has_target = (
         target_family_id
-        in
-        fixed_selected_ids
+        in fixed_selected_ids
     )
 
     dynamic_has_target = (
         target_family_id
-        in
-        dynamic_selected_ids
+        in dynamic_selected_ids
     )
 
     distractors_before = (
@@ -269,17 +267,10 @@ def classify_assembly_effect(
         distractors_after
     )
 
-    if (
-        fixed_selected_ids
-        ==
-        dynamic_selected_ids
-    ):
-
-        assembly_class = (
-            "no_change"
-        )
-
-    elif not fixed_has_target:
+    # Important:
+    # upstream availability is logically prior to whether the
+    # assembly policy happened to change the context set.
+    if not fixed_has_target:
 
         assembly_class = (
             "upstream_rank_miss"
@@ -289,6 +280,16 @@ def classify_assembly_effect(
 
         assembly_class = (
             "over_pruning"
+        )
+
+    elif (
+        fixed_selected_ids
+        ==
+        dynamic_selected_ids
+    ):
+
+        assembly_class = (
+            "no_change"
         )
 
     else:
