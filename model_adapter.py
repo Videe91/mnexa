@@ -62,6 +62,118 @@ class OpenAIResponsesModel:
         )
 
 
+class AnthropicMessagesModel:
+    """
+    Thin real-model adapter for Anthropic's Messages API.
+    The experiment owns the prompts.
+    MNEXA itself remains model-independent.
+    """
+
+    def __init__(
+        self,
+        model: str,
+        *,
+        max_tokens: int = 1024,
+    ):
+        from anthropic import Anthropic
+
+        self.name = model
+        self.max_tokens = int(
+            max_tokens
+        )
+
+        if self.max_tokens <= 0:
+            raise ValueError(
+                "max_tokens must be > 0"
+            )
+
+        self._client = (
+            Anthropic()
+        )
+
+    def generate(
+        self,
+        prompt: str,
+    ) -> Generation:
+        response = (
+            self._client
+            .messages
+            .create(
+                model=self.name,
+                max_tokens=(
+                    self.max_tokens
+                ),
+                messages=[
+                    {
+                        "role": "user",
+                        "content": prompt,
+                    }
+                ],
+            )
+        )
+
+        text_parts = []
+
+        for block in (
+            getattr(
+                response,
+                "content",
+                (),
+            )
+            or ()
+        ):
+            if (
+                getattr(
+                    block,
+                    "type",
+                    None,
+                )
+                !=
+                "text"
+            ):
+                continue
+
+            text = getattr(
+                block,
+                "text",
+                None,
+            )
+
+            if text:
+                text_parts.append(
+                    str(
+                        text
+                    )
+                )
+
+        usage = getattr(
+            response,
+            "usage",
+            None,
+        )
+
+        return Generation(
+            text="\n".join(
+                text_parts
+            ),
+            input_tokens=getattr(
+                usage,
+                "input_tokens",
+                None,
+            ),
+            output_tokens=getattr(
+                usage,
+                "output_tokens",
+                None,
+            ),
+            response_id=getattr(
+                response,
+                "id",
+                None,
+            ),
+        )
+
+
 class SentenceTransformerEmbedder:
     """
     Local semantic retrieval.

@@ -111,6 +111,8 @@ Durable Lesson Appended          Successful Transfer
 38. [`38_belief_contradiction_contestation.md`](file:///Users/vineetpandey/Desktop/mnexa/ledger/38_belief_contradiction_contestation.md): Epistemic contradiction proposal, evidence-gated contestation, and recall suppression.
 39. [`39_belief_supersession.md`](file:///Users/vineetpandey/Desktop/mnexa/ledger/39_belief_supersession.md): Evidence-gated belief supersession, shared counterepisode verification, and active replacement loop.
 40. [`40_model_transplant_proof.md`](file:///Users/vineetpandey/Desktop/mnexa/ledger/40_model_transplant_proof.md): Deterministic model transplant proof, substrate independence, and cross-model intelligence inheritance.
+41. [`41_real_cross_model_transplant.md`](file:///Users/vineetpandey/Desktop/mnexa/ledger/41_real_cross_model_transplant.md): Live cross-provider model transplant proof (OpenAI gpt-5.6-luna → MNEXA → Anthropic claude-sonnet-4-6).
+
 
 
 
